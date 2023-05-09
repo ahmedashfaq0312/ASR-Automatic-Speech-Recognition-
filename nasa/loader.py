@@ -1,8 +1,9 @@
 import os
+import re
 import requests
-from .converter import NASAConverter
+import zipfile
 
-class NASALoader():
+class NASADownoader():
     def __init__(self) -> None:
         self.download_url = "https://phm-datasets.s3.amazonaws.com/NASA/5.+Battery+Data+Set.zip"
         self.output_name = "NASA.zip"
@@ -17,7 +18,17 @@ class NASALoader():
                     for chunk in r.iter_content(chunk_size=65536):  
                         f.write(chunk)
     
-    def convert(self):
-        print("Converting NASA dataset")
-        nasa_converter = NASAConverter()
-        nasa_converter.convert()
+    def extract(self, zipped_file="NASA.zip", to_folder="."):
+        """ Extract a zip file including any nested zip files
+            Delete the zip file(s) after extraction
+        """
+        if os.path.exists(zipped_file):
+            print(f"Extracting {zipped_file}")
+            with zipfile.ZipFile(zipped_file, 'r') as zfile:
+                zfile.extractall(path=to_folder)
+            os.remove(zipped_file)
+            for root, _, files in os.walk(to_folder):
+                for filename in files:
+                    if re.search(r'\.zip$', filename):
+                        filespec = os.path.join(root, filename)
+                        self.extract(filespec, root)
