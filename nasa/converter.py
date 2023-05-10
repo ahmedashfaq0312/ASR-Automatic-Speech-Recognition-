@@ -77,9 +77,10 @@ class NASAConverter():
         return capacity, re, rct
 
     def save_metadata(self):
-        self.metadata.to_csv('metadata.csv', index=False)
+        self.metadata.to_csv(f'{self.output_dir}/metadata.csv', index=False)
 
     def convert(self):
+        print("Converting NASA dataset")
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
         self.metadata = pd.DataFrame(data=None, columns=['type', 'start_time', 'ambient_temperature', 'battery_id', 'test_id', 'uid', 'filename', 'Capacity', 'Re', 'Rct'])
@@ -96,7 +97,7 @@ class NASAConverter():
                 
                 uid += 1
                 filename = str(uid).zfill(5)+'.csv'
-                filepath = f'./{self.output_dir}/' + filename
+                filepath = f'./{self.output_dir}' + filename
                 
                 if not os.path.exists(filepath):
                     # Extract the specific test data and save it as CSV! 
