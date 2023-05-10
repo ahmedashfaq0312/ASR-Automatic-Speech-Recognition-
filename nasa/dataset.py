@@ -7,7 +7,7 @@ class NASADataset():
     def __init__(self, batteries="all", normalize="max") -> None: # batteries: ["all", "B0005", "["B0005", "B0006", "B0007", ...]"]; normalize: ["None", "max", "first"]
         self.dataset_dir = "NASA"
         self.normalize = normalize
-        self.metadata = pd.read_csv(f"metadata.csv")
+        self.metadata = pd.read_csv(f"{self.dataset_dir}/metadata.csv")
         if batteries == "all":
             self.capacities = self.extract_capacities(normalize=True)
             self.Res, self.Rcts = self.extract_resistances()
@@ -93,6 +93,16 @@ class NASADataset():
         elif type(attribute) == list:
             return_df = data_df[data_df[column_name].isin(attribute)]
         return return_df
+    
+    def attach_positional_information(self, data_dict):
+        return_data_dict = {}
+        for data_index, data in data_dict.items():
+            data_length = len(data)
+            positional_information = list(range(1, data_length+1))
+            return_data_dict[data_index] = [positional_information, data]
+        return return_data_dict
+            
+        
     
     def load(self, filter_attributes=[]):
         pass
