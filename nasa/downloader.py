@@ -4,10 +4,11 @@ import requests
 import zipfile
 
 class NASADownoader():
-    def __init__(self) -> None:
+    def __init__(self, output_path="NASA_raw") -> None:
         self.download_url = "https://phm-datasets.s3.amazonaws.com/NASA/5.+Battery+Data+Set.zip"
         self.output_name = "NASA.zip"
-        self.output_path = "NASA"
+        self.output_path = output_path
+        self.unzip_folder = "5. Battery Data Set"
         
     def download(self):
         if not os.path.exists(self.output_name):
@@ -32,3 +33,5 @@ class NASADownoader():
                     if re.search(r'\.zip$', filename):
                         filespec = os.path.join(root, filename)
                         self.extract(filespec, root)
+        if os.path.exists(self.unzip_folder) and not os.path.exists(self.output_path):
+            os.rename(self.unzip_folder, self.output_path)

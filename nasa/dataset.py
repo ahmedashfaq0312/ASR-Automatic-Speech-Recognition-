@@ -2,14 +2,16 @@ import pandas as pd
 import ast
 import re
 from datetime import datetime
+import collections
 
 class NASADataset():
-    def __init__(self, batteries="all", normalize="max") -> None: # batteries: ["all", "B0005", "["B0005", "B0006", "B0007", ...]"]; normalize: ["None", "max", "first"]
-        self.dataset_dir = "NASA"
+    def __init__(self, batteries="all", normalize=None) -> None: # batteries: ["all", "B0005", "["B0005", "B0006", "B0007", ...]"]; normalize: [None, "max", "first"]
+        self.nasa_root = "NASA"
+        self.dataset_dir = f"{self.nasa_root}/data"
         self.normalize = normalize
-        self.metadata = pd.read_csv(f"{self.dataset_dir}/metadata.csv")
+        self.metadata = pd.read_csv(f"{self.nasa_root}/metadata.csv")
         if batteries == "all":
-            self.capacities = self.extract_capacities(normalize=True)
+            self.capacities = self.extract_capacities()
             self.Res, self.Rcts = self.extract_resistances()
         else:
             self.metadata = self.filter_rows(self.metadata, "battery_id", batteries)
@@ -18,23 +20,25 @@ class NASADataset():
         
     
     def extract_capacities(self):
-        self.capacities = {}
+        Capacities = {}
         discharge_df = self.metadata[self.metadata["type"] == "discharge"]
         for _, df_line in discharge_df.iterrows():
             try:
                 capacity = float(df_line["Capacity"])
             except ValueError:
                 pass
-            if df_line["battery_id"] not in self.capacities:
-                self.capacities[df_line["battery_id"]] = []
-            self.capacities[df_line["battery_id"]].append(capacity)
+            if df_line["battery_id"] not in Capacities:
+                Capacities[df_line["battery_id"]] = []
+            Capacities[df_line["battery_id"]].append(capacity)
         if self.normalize != None:
-            for bat_id, capacities in self.capacities.items():
+            for bat_id, capacities in Capacities.items():
                 if self.normalize == "max":
-                    self.capacities[bat_id] = [capacity/max(capacities) for capacity in capacities]
+                    Capacities[bat_id] = [capacity/max(capacities) for capacity in capacities]
                 elif self.normalize == "first":
-                    self.capacities[bat_id] = [capacity/capacities[0] for capacity in capacities]
-        return self.capacities
+                    Capacities[bat_id] = [capacity/capacities[0] for capacity in capacities]
+        
+        Capacities = collections.OrderedDict(sorted(Capacities.items()))
+        return Capacities
     
     def extract_resistances(self):
         Res = {}
@@ -53,6 +57,9 @@ class NASADataset():
                 Rcts[df_line["battery_id"]] = []
             Res[df_line["battery_id"]].append(re)
             Rcts[df_line["battery_id"]].append(rct)
+        
+        Res = collections.OrderedDict(sorted(Res.items()))
+        Rcts = collections.OrderedDict(sorted(Rcts.items()))
         return Res, Rcts
 
     def extract_measurement_times(self, measurement_type="discharge"):
@@ -76,12 +83,6 @@ class NASADataset():
             if df_line["battery_id"] not in discharge_times:
                 discharge_times[df_line["battery_id"]] = []
             discharge_times[df_line["battery_id"]].append(timestamp_seconds)
-        # if self.normalize != None:
-        #     for bat_id, capacities in discharge_times.items():
-        #         if self.normalize == "max":
-        #             discharge_times[bat_id] = [capacity/max(capacities) for capacity in capacities]
-        #         elif self.normalize == "first":
-        #             discharge_times[bat_id] = [capacity/capacities[0] for capacity in capacities]
         return discharge_times
         
     

@@ -1,0 +1,5 @@
+NASA/
+NASA_raw/
+NASA.zip
+.fuse_hidden*
+*.pyc

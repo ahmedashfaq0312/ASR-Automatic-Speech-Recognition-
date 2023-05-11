@@ -5,15 +5,16 @@ import scipy
 
 # helper and converter methods from this notebook: https://www.kaggle.com/code/patrickfleith/nasa-battery-life-prediction-dataset-cleaning
 class NASAConverter():
-    def __init__(self) -> None:
-        self.NASA_root = "./5. Battery Data Set"
-        self.output_dir = "NASA"
+    def __init__(self, nasa_dir="NASA_raw", output_dir="NASA") -> None:
+        self.NASA_root = nasa_dir
+        self.output_dir = output_dir
         self.filelist = []
         self.get_filelist()
 
     def get_filelist(self):
         self.load_filelist()
         self.filter_matfiles_list()
+        self.filelist = sorted(self.filelist)        
 
     # Helper functions
     def load_filelist(self):
@@ -97,7 +98,10 @@ class NASAConverter():
                 
                 uid += 1
                 filename = str(uid).zfill(5)+'.csv'
-                filepath = f'./{self.output_dir}' + filename
+                data_dir = f"{self.output_dir}/data"
+                if not os.path.exists(data_dir):
+                    os.makedirs(data_dir)
+                filepath = f'./{data_dir}/{filename}'
                 
                 if not os.path.exists(filepath):
                     # Extract the specific test data and save it as CSV! 
