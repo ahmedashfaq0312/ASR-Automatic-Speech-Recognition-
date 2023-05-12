@@ -62,14 +62,16 @@ class NASADataset():
         Rcts = collections.OrderedDict(sorted(Rcts.items()))
         return Res, Rcts
 
-    def extract_measurement_times(self, measurement_type="discharge"):
+    def extract_measurement_times(self, battery_id="", measurement_type="discharge"):
         discharge_times = {}
         impedance_times = {}
         
         epoch_time = datetime(1970, 1, 1)
         
-        discharge_df = self.metadata[self.metadata["type"] == "discharge"]
-        for _, df_line in discharge_df.iterrows():
+        data_df = self.metadata[self.metadata["type"] == measurement_type]
+        if battery_id != "":
+            data_df = data_df[data_df["battery_id"] == battery_id]
+        for _, df_line in data_df.iterrows():
             try:
                 timestamp = df_line["start_time"]
                 timestamp = re.sub(' +', ', ', timestamp) # get string representation of list into right format
@@ -94,6 +96,11 @@ class NASADataset():
         elif type(attribute) == list:
             return_df = data_df[data_df[column_name].isin(attribute)]
         return return_df
+
+    def normalize_data(self, data_list):
+        deltas = [i - min(data_list) for i in data_list]
+        normlized_deltas = [i/max(deltas) for i in deltas]
+        return normlized_deltas
     
     def attach_positional_information(self, data_dict):
         return_data_dict = {}
@@ -102,7 +109,18 @@ class NASADataset():
             positional_information = list(range(1, data_length+1))
             return_data_dict[data_index] = [positional_information, data]
         return return_data_dict
-            
+    
+    def attach_temporal_information(self, data_dict):
+        return_data_dict = {}
+        for data_index, data in data_dict.items():
+            measurement_times = self.extract_measurement_times(battery_id=data_index)
+            normalized_measurement_times = self.normalize_data(measurement_times[data_index])
+            if len(data) > 2:
+                data = [data, normalized_measurement_times]
+            else:
+                data.append(normalized_measurement_times)
+            return_data_dict[data_index] = data
+        return return_data_dict
         
     
     def load(self, filter_attributes=[]):
