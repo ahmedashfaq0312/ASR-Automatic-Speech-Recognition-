@@ -2,20 +2,19 @@ import os
 import numpy as np
 import pandas as pd
 import glob
-import openpyxl
-import csv
-
 
 class CALCEDataset():
-    def __init__(self, calce_root, battery_list, file_type=".csv"):
+    def __init__(self, batteries, calce_root="CALCE", file_type=".csv"):
         self.calce_root = calce_root
-        self.battery_list = battery_list
+        self.batteries = batteries
         self.file_type = file_type
         self.data_dict = {}
         self.capacities = {}
         self.sohs = {}
         self.resistances = {}
         self.timestamps = {}
+        self.ccct = {}
+        self.cvct = {}
         self.load()
 
     def drop_outlier(self, array,count,bins):
@@ -35,18 +34,14 @@ class CALCEDataset():
         print(f"Converting {xlsx_path}")
         csv_path = xlsx_path.replace(".xlsx", ".csv")
         read_file = pd.read_excel(xlsx_path, sheet_name=1, dtype=str)
-        newWorkbook = openpyxl.load_workbook(xlsx_path)
-        sheet = newWorkbook.worksheets[1]
-        OutputCsvFile = csv.writer(open(csv_path, 'w'), delimiter=",")
-        for eachrow in sheet.rows:
-            OutputCsvFile.writerow([cell.value for cell in eachrow])
-        # read_file.to_csv(csv_path, encoding='utf-8', index=False, header=True)
+        read_file.to_csv(csv_path, encoding='utf-8', index=False, header=True)
 
     def load(self):
-        for name in self.battery_list:
+        for name in self.batteries:
             print('Load CALCE Dataset ' + name + ' ...')
             path = glob.glob(self.calce_root + name + '/*.xlsx')
             dates = []
+            paths = []
             for p in path:
                 if self.file_type == ".csv":
                     csv_path = p.replace(".xlsx", ".csv")
@@ -54,17 +49,20 @@ class CALCEDataset():
                         self.convert(p)
                     p = csv_path
                     df = pd.read_csv(p)
+                    paths.append(csv_path)
+                    date = pd.Timestamp(df['Date_Time'][0])
                 elif self.file_type == ".xlsx":
                     df = pd.read_excel(p, sheet_name=1)
+                    date = df['Date_Time'][0]
                 print('Load ' + str(p) + ' ...')
-                dates.append(df['Date_Time'][0])
+                dates.append(date)
             if self.file_type == ".csv":
-                path = glob.glob(self.calce_root + name + '/*.csv')
+                path = paths
             elif self.file_type == ".xlsx":
                 path = glob.glob(self.calce_root + name + '/*.xlsx')
             idx = np.argsort(dates)
             path_sorted = (np.array(path)[idx]).tolist()
-            
+
             count = 0
             time_offset = 0
             discharge_capacities = []
@@ -137,3 +135,5 @@ class CALCEDataset():
             self.sohs[name] = health_indicator[idx]
             self.resistances[name] = internal_resistance[idx]
             self.timestamps[name] = timestamps[idx]
+            self.ccct[name] = CCCT[idx]
+            self.cvct[name] = CVCT[idx]
