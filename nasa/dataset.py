@@ -5,10 +5,11 @@ from datetime import datetime
 import collections
 
 class NASADataset():
-    def __init__(self, batteries="all", normalize=None) -> None: # batteries: ["all", "B0005", "["B0005", "B0006", "B0007", ...]"]; normalize: [None, "max", "first"]
+    def __init__(self, batteries="all", normalize=None, clean_dataset=True) -> None: # batteries: ["all", "B0005", "["B0005", "B0006", "B0007", ...]"]; normalize: [None, "max", "first"]
         self.nasa_root = "NASA"
         self.dataset_dir = f"{self.nasa_root}/data"
         self.normalize = normalize
+        self.clean_dataset = clean_dataset
         self.metadata = pd.read_csv(f"{self.nasa_root}/metadata.csv")
         if batteries == "all":
             self.capacities = self.extract_capacities()
@@ -17,7 +18,17 @@ class NASADataset():
             self.metadata = self.filter_rows(self.metadata, "battery_id", batteries)
             self.capacities = self.extract_capacities()
             self.Res, self.Rcts = self.extract_resistances()
-        
+
+    def clean(self, data, thresh=0.1):
+        peaks = []
+        for i in range(len(data)-2):
+            diff_1 = abs(data[i] - data[i+1]) # difference to the next value
+            # diff_2 = abs(data[i] - data[i+2]) # difference to the value after the next value
+            if diff_1 > thresh: # and diff_2 < thresh: # only detect and remove single value peaks
+                if i not in peaks:
+                    data[i+1] = data[i]
+                    peaks.append(i+1)
+        return data
     
     def extract_capacities(self):
         Capacities = {}
@@ -30,13 +41,13 @@ class NASADataset():
             if df_line["battery_id"] not in Capacities:
                 Capacities[df_line["battery_id"]] = []
             Capacities[df_line["battery_id"]].append(capacity)
-        if self.normalize != None:
-            for bat_id, capacities in Capacities.items():
-                if self.normalize == "max":
-                    Capacities[bat_id] = [capacity/max(capacities) for capacity in capacities]
-                elif self.normalize == "first":
-                    Capacities[bat_id] = [capacity/capacities[0] for capacity in capacities]
-        
+        for bat_id, capacities in Capacities.items():
+            if self.clean_dataset:
+                capacities = self.clean(capacities)
+            if self.normalize == "max":
+                Capacities[bat_id] = [capacity/max(capacities) for capacity in capacities]
+            elif self.normalize == "first":
+                Capacities[bat_id] = [capacity/capacities[0] for capacity in capacities]
         Capacities = collections.OrderedDict(sorted(Capacities.items()))
         return Capacities
     

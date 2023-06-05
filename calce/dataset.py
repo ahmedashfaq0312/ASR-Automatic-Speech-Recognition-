@@ -4,11 +4,13 @@ import pandas as pd
 import glob
 from calce.converter import CALCEConverter
 from calce.downloader import CALCEDownloader
+
 class CALCEDataset():
-    def __init__(self, batteries, calce_root="CALCE", file_type=".csv"):
+    def __init__(self, batteries, calce_root="CALCE", file_type=".csv", clean_dataset=True):
         self.calce_root = calce_root
         self.batteries = batteries
         self.file_type = file_type
+        self.clean_dataset = clean_dataset
         self.data_dict = {}
         self.capacities = {}
         self.sohs = {}
@@ -17,7 +19,7 @@ class CALCEDataset():
         self.ccct = {}
         self.cvct = {}
         self.raw_output_path = self.calce_root + "_raw"
-        self.downloader = CALCEDownloader(batteries=self.batteries, output_path=self.raw_output_path)
+        self.downloader = CALCEDownloader(battery_list=self.batteries, output_path=self.calce_root)
         self.converter = CALCEConverter()
         self.load()
 
@@ -34,11 +36,21 @@ class CALCEDataset():
             index.extend(list(idx))
         return np.array(index)
 
+    def clean(self, data, thresh=0.1):
+        peaks = []
+        for i in range(len(data)-1):
+            diff = abs(data[i] - data[i+1])
+            if diff > thresh:
+                if i not in peaks:
+                    data[i+1] = data[i]
+                    peaks.append(i+1)
+        return data
+
     def load(self):
         self.downloader.download_and_extract()
         for name in self.batteries:
             print('Load CALCE Dataset ' + name + ' ...')
-            path = glob.glob(self.calce_root + name + '/*.xlsx')
+            path = glob.glob(self.calce_root + "/" + name + '/*.xlsx')
             dates = []
             paths = []
             for p in path:
@@ -78,6 +90,8 @@ class CALCEDataset():
                 print('Load ' + str(p) + ' ...')
                 cycles = list(set(df['Cycle_Index']))
                 for c in cycles:
+                    if c == 12:
+                        x = 0
                     df_lim = df[df['Cycle_Index'] == c]
                     #Charging
                     df_c = df_lim[(df_lim['Step_Index'] == 2)|(df_lim['Step_Index'] == 4)]
@@ -101,10 +115,12 @@ class CALCEDataset():
                         time_diff = np.diff(list(d_t))
                         timestamps.append((list(d_t)[-1]/3600) + time_offset)
                         d_c = np.array(list(d_c))[1:]
-                        discharge_capacity = time_diff*d_c/3600 # Q = A*h
-                        discharge_capacity = [np.sum(discharge_capacity[:n]) for n in range(discharge_capacity.shape[0])]
-                        discharge_capacities.append(-1*discharge_capacity[-1])
-
+                        try:
+                            discharge_capacity = time_diff*d_c/3600 # Q = A*h
+                            discharge_capacity = [np.sum(discharge_capacity[:n]) for n in range(discharge_capacity.shape[0])]
+                            discharge_capacities.append(-1*discharge_capacity[-1])
+                        except:
+                            continue
                         dec = np.abs(np.array(d_v) - 3.8)[1:]
                         start = np.array(discharge_capacity)[np.argmin(dec)]
                         dec = np.abs(np.array(d_v) - 3.4)[1:]
@@ -120,19 +136,32 @@ class CALCEDataset():
             timestamps = np.array(timestamps)
             CCCT = np.array(CCCT)
             CVCT = np.array(CVCT)
-            
+
             idx = self.drop_outlier(discharge_capacities, count, 40)
+            capacities = discharge_capacities[idx]
+            health_indicator = health_indicator[idx]
+            internal_resistance = internal_resistance[idx]
+            timestamps = timestamps[idx]
+            CCCT = CCCT[idx]
+            CVCT = CVCT[idx]
+            if self.clean_dataset:
+                capacities = self.clean(capacities)
+                health_indicator = self.clean(health_indicator)
+                internal_resistance = self.clean(internal_resistance)
+                CCCT = self.clean(CCCT)
+                CVCT = self.clean(CVCT)
+
             df_result = pd.DataFrame({'cycle':np.linspace(1,idx.shape[0],idx.shape[0]),
-                                    'capacity':discharge_capacities[idx],
-                                    'SoH':health_indicator[idx],
-                                    'resistance':internal_resistance[idx],
-                                    'timestamps':timestamps[idx],
-                                    'CCCT':CCCT[idx],
-                                    'CVCT':CVCT[idx]})
+                                    'capacity':capacities,
+                                    'SoH':health_indicator,
+                                    'resistance':internal_resistance,
+                                    'timestamps':timestamps,
+                                    'CCCT':CCCT,
+                                    'CVCT':CVCT})
             self.data_dict[name] = df_result
-            self.capacities[name] = discharge_capacities[idx]
-            self.sohs[name] = health_indicator[idx]
-            self.resistances[name] = internal_resistance[idx]
-            self.timestamps[name] = timestamps[idx]
-            self.ccct[name] = CCCT[idx]
-            self.cvct[name] = CVCT[idx]
+            self.capacities[name] = capacities
+            self.sohs[name] = health_indicator
+            self.resistances[name] = internal_resistance
+            self.timestamps[name] = timestamps
+            self.ccct[name] = CCCT
+            self.cvct[name] = CVCT
