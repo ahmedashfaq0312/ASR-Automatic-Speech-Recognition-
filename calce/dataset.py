@@ -2,7 +2,8 @@ import os
 import numpy as np
 import pandas as pd
 import glob
-
+from calce.converter import CALCEConverter
+from calce.downloader import CALCEDownloader
 class CALCEDataset():
     def __init__(self, batteries, calce_root="CALCE", file_type=".csv"):
         self.calce_root = calce_root
@@ -15,6 +16,9 @@ class CALCEDataset():
         self.timestamps = {}
         self.ccct = {}
         self.cvct = {}
+        self.raw_output_path = self.calce_root + "_raw"
+        self.downloader = CALCEDownloader(batteries=self.batteries, output_path=self.raw_output_path)
+        self.converter = CALCEConverter()
         self.load()
 
     def drop_outlier(self, array,count,bins):
@@ -30,13 +34,8 @@ class CALCEDataset():
             index.extend(list(idx))
         return np.array(index)
 
-    def convert(self, xlsx_path):
-        print(f"Converting {xlsx_path}")
-        csv_path = xlsx_path.replace(".xlsx", ".csv")
-        read_file = pd.read_excel(xlsx_path, sheet_name=1, dtype=str)
-        read_file.to_csv(csv_path, encoding='utf-8', index=False, header=True)
-
     def load(self):
+        self.downloader.download_and_extract()
         for name in self.batteries:
             print('Load CALCE Dataset ' + name + ' ...')
             path = glob.glob(self.calce_root + name + '/*.xlsx')
@@ -46,7 +45,7 @@ class CALCEDataset():
                 if self.file_type == ".csv":
                     csv_path = p.replace(".xlsx", ".csv")
                     if not os.path.exists(csv_path):
-                        self.convert(p)
+                        self.converter.convert(p)
                     p = csv_path
                     df = pd.read_csv(p)
                     paths.append(csv_path)
