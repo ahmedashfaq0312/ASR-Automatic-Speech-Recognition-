@@ -1,7 +1,12 @@
 NASA/
 NASA_raw/
-NASA.zip
+*.zip
 .fuse_hidden*
 *.pyc
 *.csv
 *.xlsx
+*.xls
+*.txt
+*.png
+*.npy
+*.db
