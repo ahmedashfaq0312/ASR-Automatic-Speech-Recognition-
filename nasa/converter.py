@@ -9,7 +9,6 @@ class NASAConverter():
         self.NASA_root = nasa_dir
         self.output_dir = output_dir
         self.filelist = []
-        self.get_filelist()
 
     def get_filelist(self):
         self.load_filelist()
@@ -47,16 +46,16 @@ class NASAConverter():
             elif k == 'Rct':
                 metadata_dict[k]=v
             else:
-                print("c'est la merde")
+                print("No value found")
         
         return ndict, metadata_dict
 
 
     def fill_metadata_row(self, test_type, test_start_time, test_temperature, battery_name, test_id, uid, filename, capacity, re, rct):
-        tmp = pd.DataFrame(data=[test_type, test_start_time, test_temperature, battery_name, test_id, uid, filename, capacity, re, rct])
-        tmp = tmp.transpose()
-        tmp.columns = self.metadata.columns
-        self.metadata = pd.concat((self.metadata, tmp), axis=0)
+        tmp_df = pd.DataFrame(data=[test_type, test_start_time, test_temperature, battery_name, test_id, uid, filename, capacity, re, rct])
+        tmp_df = tmp_df.transpose()
+        tmp_df.columns = self.metadata.columns
+        self.metadata = pd.concat((self.metadata, tmp_df), axis=0)
 
     def extract_more_metadata(self, metadata_dict):
         
@@ -78,14 +77,16 @@ class NASAConverter():
         return capacity, re, rct
 
     def save_metadata(self):
-        self.metadata.to_csv(f'{self.output_dir}/metadata.csv', index=False)
+        if not os.path.exists(f'{self.output_dir}/metadata.csv'):
+            self.metadata.to_csv(f'{self.output_dir}/metadata.csv', index=False)
 
-    def convert(self):
+    def convert(self, battery_ids):
+        self.get_filelist()
         print("Converting NASA dataset")
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
         self.metadata = pd.DataFrame(data=None, columns=['type', 'start_time', 'ambient_temperature', 'battery_id', 'test_id', 'uid', 'filename', 'Capacity', 'Re', 'Rct'])
-        self.battery_list = [item.split('/')[-1].split('.')[0] for item in self.filelist]
+        self.battery_list = [item.split('/')[-1].split('.')[0] for item in self.filelist if item in battery_ids]
     
         uid = 0
         for battery_name, mat_filepath in zip(self.battery_list, self.filelist):

@@ -32,6 +32,8 @@ class CALCEDownloader():
                     print(f"Extracting {zipped_file}")
                     with zipfile.ZipFile(zipped_file, 'r') as zfile:
                         zfile.extractall(path=f"{self.output_path}/")
+            if battery == "CS2_21" and not os.path.exists(f"{self.output_path}/{battery}/CS2_21_7_09_10.txt"):
+                os.rename(f"{self.output_path}/{battery}/CS2_21_7_9b_10.txt", f"{self.output_path}/{battery}/CS2_21_7_09_10.txt")
 
     def download_and_extract(self):
         self.download()

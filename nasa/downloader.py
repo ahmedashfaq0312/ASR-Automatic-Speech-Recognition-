@@ -27,11 +27,16 @@ class NASADownoader():
             print(f"Extracting {zipped_file}")
             with zipfile.ZipFile(zipped_file, 'r') as zfile:
                 zfile.extractall(path=to_folder)
-            os.remove(zipped_file)
-            for root, _, files in os.walk(to_folder):
+            if os.path.exists(self.unzip_folder) and not os.path.exists(self.output_path):
+                os.rename(self.unzip_folder, self.output_path)
+            if zipped_file != self.output_name:
+                os.remove(zipped_file)
+            for root, _, files in os.walk(self.output_path):
                 for filename in files:
                     if re.search(r'\.zip$', filename):
                         filespec = os.path.join(root, filename)
                         self.extract(filespec, root)
-        if os.path.exists(self.unzip_folder) and not os.path.exists(self.output_path):
-            os.rename(self.unzip_folder, self.output_path)
+
+    def download_and_extract(self):
+        self.download()
+        self.extract()

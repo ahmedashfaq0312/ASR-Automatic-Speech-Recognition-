@@ -3,21 +3,19 @@ import ast
 import re
 from datetime import datetime
 import collections
+from .downloader import NASADownoader
+from .converter import NASAConverter
 
 class NASADataset():
     def __init__(self, batteries="all", normalize=None, clean_dataset=True) -> None: # batteries: ["all", "B0005", "["B0005", "B0006", "B0007", ...]"]; normalize: [None, "max", "first"]
         self.nasa_root = "NASA"
         self.dataset_dir = f"{self.nasa_root}/data"
+        self.batteries = batteries
         self.normalize = normalize
         self.clean_dataset = clean_dataset
-        self.metadata = pd.read_csv(f"{self.nasa_root}/metadata.csv")
-        if batteries == "all":
-            self.capacities = self.extract_capacities()
-            self.Res, self.Rcts = self.extract_resistances()
-        else:
-            self.metadata = self.filter_rows(self.metadata, "battery_id", batteries)
-            self.capacities = self.extract_capacities()
-            self.Res, self.Rcts = self.extract_resistances()
+        self.downloader = NASADownoader()
+        self.converter = NASAConverter()
+        self.load()
 
     def clean(self, data, thresh=0.1):
         peaks = []
@@ -48,8 +46,7 @@ class NASADataset():
                 Capacities[bat_id] = [capacity/max(capacities) for capacity in capacities]
             elif self.normalize == "first":
                 Capacities[bat_id] = [capacity/capacities[0] for capacity in capacities]
-        Capacities = collections.OrderedDict(sorted(Capacities.items()))
-        return Capacities
+        self.capacities = collections.OrderedDict(sorted(Capacities.items()))
     
     def extract_resistances(self):
         Res = {}
@@ -69,9 +66,8 @@ class NASADataset():
             Res[df_line["battery_id"]].append(re)
             Rcts[df_line["battery_id"]].append(rct)
         
-        Res = collections.OrderedDict(sorted(Res.items()))
-        Rcts = collections.OrderedDict(sorted(Rcts.items()))
-        return Res, Rcts
+        self.Res = collections.OrderedDict(sorted(Res.items()))
+        self.Rcts = collections.OrderedDict(sorted(Rcts.items()))
 
     def extract_measurement_times(self, battery_id="", measurement_type="discharge"):
         discharge_times = {}
@@ -113,26 +109,30 @@ class NASADataset():
         normlized_deltas = [i/max(deltas) for i in deltas]
         return normlized_deltas
     
-    def attach_positional_information(self, data_dict):
-        return_data_dict = {}
-        for data_index, data in data_dict.items():
+    def get_positional_information(self):
+        self.positions = {}
+        for data_index, data in self.capacities.items():
             data_length = len(data)
-            positional_information = list(range(1, data_length+1))
-            return_data_dict[data_index] = [positional_information, data]
-        return return_data_dict
+            self.positions[data_index] = list(range(1, data_length+1))
+
     
-    def attach_temporal_information(self, data_dict):
-        return_data_dict = {}
-        for data_index, data in data_dict.items():
+    def get_temporal_information(self):
+        self.measurement_times = {}
+        for data_index, _ in self.capacities.items():
             measurement_times = self.extract_measurement_times(battery_id=data_index)
             normalized_measurement_times = self.normalize_data(measurement_times[data_index])
-            if len(data) > 2:
-                data = [data, normalized_measurement_times]
-            else:
-                data.append(normalized_measurement_times)
-            return_data_dict[data_index] = data
-        return return_data_dict
+            self.measurement_times[data_index] = normalized_measurement_times
+
         
     
     def load(self, filter_attributes=[]):
-        pass
+        self.downloader.download_and_extract()
+        self.converter.convert(self.batteries)
+        self.metadata = pd.read_csv(f"{self.nasa_root}/metadata.csv")
+        if self.batteries == "all":
+            self.extract_capacities()
+            self.extract_resistances()
+        else:
+            self.metadata = self.filter_rows(self.metadata, "battery_id", self.batteries)
+            self.extract_capacities()
+            self.extract_resistances()

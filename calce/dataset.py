@@ -16,7 +16,7 @@ class CALCEDataset():
         self.capacities = {}
         self.sohs = {}
         self.resistances = {}
-        self.timestamps = {}
+        self.measurement_times = {}
         self.ccct = {}
         self.cvct = {}
         self.raw_output_path = self.calce_root + "_raw"
@@ -57,6 +57,17 @@ class CALCEDataset():
                     data[i+1] = data[i]
                     peaks.append(i+1)
         return data
+
+    def get_positional_information(self):
+        self.positions = {}
+        for data_index, data in self.capacities.items():
+            data_length = len(data)
+            self.positions[data_index] = list(range(1, data_length+1))
+
+    
+    def get_temporal_information(self):
+        pass
+
 
     def load(self):
         self.downloader.download_and_extract()
@@ -102,7 +113,7 @@ class CALCEDataset():
     def load_txt(self, df, name, path_sorted):
         time_offset = 0
         discharge_capacities = []
-        timestamps = []
+        measurement_times = []
         for p in path_sorted:
             df = pd.read_csv(p, sep="\t", dtype=float)
             df = self.remove_column_with_same_value(df)
@@ -112,13 +123,13 @@ class CALCEDataset():
                 discharge_capacities.extend(raw_capacities[peaks].tolist())
                 raw_time = df["Time"][peaks].tolist()
                 raw_time_hours = [time/3600 for time in raw_time]
-                timestamps.extend([time + time_offset for time in raw_time_hours])
+                measurement_times.extend([time + time_offset for time in raw_time_hours])
                 time_offset += raw_time_hours[-1]
         capacities = [c / 100 for c in discharge_capacities]
         if self.clean_dataset:
             capacities = self.clean_peaks(capacities)
         self.capacities[name] = capacities
-        self.timestamps[name] = timestamps
+        self.measurement_times[name] = measurement_times
 
 
     def load_excel_csv(self, df, name, path_sorted):
@@ -127,7 +138,7 @@ class CALCEDataset():
         discharge_capacities = []
         health_indicator = []
         internal_resistance = []
-        timestamps = []
+        measurement_times = []
         CCCT = []
         CVCT = []
         for p in path_sorted:
@@ -159,7 +170,7 @@ class CALCEDataset():
 
                 if(len(list(d_c)) != 0):
                     time_diff = np.diff(list(d_t))
-                    timestamps.append((list(d_t)[-1]/3600) + time_offset)
+                    measurement_times.append((list(d_t)[-1]/3600) + time_offset)
                     d_c = np.array(list(d_c))[1:]
                     try:
                         discharge_capacity = time_diff*d_c/3600 # Q = A*h
@@ -175,11 +186,11 @@ class CALCEDataset():
 
                     internal_resistance.append(np.mean(np.array(d_im)))
                     count += 1
-            time_offset = timestamps[-1]
+            time_offset = measurement_times[-1]
         discharge_capacities = np.array(discharge_capacities)
         health_indicator = np.array(health_indicator)
         internal_resistance = np.array(internal_resistance)
-        timestamps = np.array(timestamps)
+        measurement_times = np.array(measurement_times)
         CCCT = np.array(CCCT)
         CVCT = np.array(CVCT)
 
@@ -187,7 +198,7 @@ class CALCEDataset():
         capacities = discharge_capacities[idx]
         health_indicator = health_indicator[idx]
         internal_resistance = internal_resistance[idx]
-        timestamps = timestamps[idx]
+        measurement_times = measurement_times[idx]
         CCCT = CCCT[idx]
         CVCT = CVCT[idx]
         if self.clean_dataset:
@@ -201,13 +212,13 @@ class CALCEDataset():
                                 'capacity':capacities,
                                 'SoH':health_indicator,
                                 'resistance':internal_resistance,
-                                'timestamps':timestamps,
+                                'timestamps':measurement_times,
                                 'CCCT':CCCT,
                                 'CVCT':CVCT})
         self.data_dict[name] = df_result
         self.capacities[name] = capacities
         self.sohs[name] = health_indicator
         self.resistances[name] = internal_resistance
-        self.timestamps[name] = timestamps
+        self.measurement_times[name] = measurement_times
         self.ccct[name] = CCCT
         self.cvct[name] = CVCT
