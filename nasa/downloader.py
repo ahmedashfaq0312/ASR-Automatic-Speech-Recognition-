@@ -4,6 +4,8 @@ import requests
 import zipfile
 
 class NASADownoader():
+    """Class for downloading NASA battery dataset.
+    """
     def __init__(self, output_path="NASA_raw") -> None:
         self.download_url = "https://phm-datasets.s3.amazonaws.com/NASA/5.+Battery+Data+Set.zip"
         self.output_name = "NASA.zip"
@@ -11,6 +13,8 @@ class NASADownoader():
         self.unzip_folder = "5. Battery Data Set"
         
     def download(self):
+        """Download dataset.
+        """
         if not os.path.exists(self.output_name):
             print(f"Downloading NASA dataset from {self.download_url}")
             with requests.get(self.download_url, stream=True) as r:
@@ -20,8 +24,8 @@ class NASADownoader():
                         f.write(chunk)
     
     def extract(self, zipped_file="NASA.zip", to_folder="."):
-        """ Extract a zip file including any nested zip files
-            Delete the zip file(s) after extraction
+        """ Extract a zip file including any nested zip files.
+            Delete the zip file(s) after extraction.
         """
         if os.path.exists(zipped_file):
             print(f"Extracting {zipped_file}")
@@ -38,5 +42,7 @@ class NASADownoader():
                         self.extract(filespec, root)
 
     def download_and_extract(self):
+        """Wrapper for download and extraction.
+        """
         self.download()
         self.extract()

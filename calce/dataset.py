@@ -7,6 +7,8 @@ from calce.converter import CALCEConverter
 from calce.downloader import CALCEDownloader
 
 class CALCEDataset():
+    """Class for preprocessing and loading CALCE battery dataset.
+    """
     def __init__(self, batteries, calce_root="CALCE", file_type=".csv", clean_dataset=True):
         self.calce_root = calce_root
         self.batteries = batteries
@@ -25,6 +27,8 @@ class CALCEDataset():
         self.load()
 
     def drop_outlier(self, array,count,bins):
+        """Filters and drops outliers in data.
+        """
         index = []
         range_ = np.arange(1,count,bins)
         for i in range_[:-1]:
@@ -38,10 +42,14 @@ class CALCEDataset():
         return np.array(index)
 
     def has_column_same_values(self, data_column):
+        """Checks if all values in column are the same.
+        """
         data_column_numpy = data_column.to_numpy()
         return (data_column_numpy[0] == data_column_numpy).all()
 
     def remove_column_with_same_value(self, dataframe):
+        """Filters dataframe and drops columns with same values.
+        """
         for column in dataframe:
             df_col = dataframe[column]
             if self.has_column_same_values(df_col):
@@ -49,6 +57,8 @@ class CALCEDataset():
         return dataframe
 
     def clean_peaks(self, data, thresh=0.1):
+        """Cleans eajs frin data,
+        """
         peaks = []
         for i in range(len(data)-1):
             diff = abs(data[i] - data[i+1])
@@ -59,6 +69,8 @@ class CALCEDataset():
         return data
 
     def get_positional_information(self):
+        """Extracts positional information from data.
+        """
         self.positions = {}
         for data_index, data in self.capacities.items():
             data_length = len(data)
@@ -66,10 +78,14 @@ class CALCEDataset():
 
     
     def get_temporal_information(self):
+        """Extracts temporal information from data.
+        """
         pass
 
 
     def load(self):
+        """Loads CALCE dataset.
+        """
         self.downloader.download_and_extract()
         for name in self.batteries:
             print('Load CALCE Dataset ' + name + ' ...')
@@ -111,6 +127,8 @@ class CALCEDataset():
                 self.load_excel_csv(df, name, path_sorted)               
 
     def load_txt(self, df, name, path_sorted):
+        """Wrapper for loading txt data.
+        """
         time_offset = 0
         discharge_capacities = []
         measurement_times = []
@@ -133,6 +151,8 @@ class CALCEDataset():
 
 
     def load_excel_csv(self, df, name, path_sorted):
+        """Wrapper for loading excel or csv data.
+        """
         count = 0
         time_offset = 0
         discharge_capacities = []

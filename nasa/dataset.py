@@ -7,6 +7,8 @@ from .downloader import NASADownoader
 from .converter import NASAConverter
 
 class NASADataset():
+    """Class for preprocessing and loading NASA battery dataset.
+    """
     def __init__(self, batteries="all", normalize=None, clean_dataset=True) -> None: # batteries: ["all", "B0005", "["B0005", "B0006", "B0007", ...]"]; normalize: [None, "max", "first"]
         self.nasa_root = "NASA"
         self.dataset_dir = f"{self.nasa_root}/data"
@@ -18,10 +20,15 @@ class NASADataset():
         self.load()
 
     def clean(self, data, thresh=0.1):
+        """Clean peaks from data.
+
+        Args:
+            data (list): Data to be cleaned
+            thresh (float, optional): Threshold for minimum peak height. Defaults to 0.1.
+        """
         peaks = []
         for i in range(len(data)-2):
             diff_1 = abs(data[i] - data[i+1]) # difference to the next value
-            # diff_2 = abs(data[i] - data[i+2]) # difference to the value after the next value
             if diff_1 > thresh: # and diff_2 < thresh: # only detect and remove single value peaks
                 if i not in peaks:
                     data[i+1] = data[i]
@@ -29,6 +36,8 @@ class NASADataset():
         return data
     
     def extract_capacities(self):
+        """Extracts capacities from metadata.
+        """
         Capacities = {}
         discharge_df = self.metadata[self.metadata["type"] == "discharge"]
         for _, df_line in discharge_df.iterrows():
@@ -49,6 +58,8 @@ class NASADataset():
         self.capacities = collections.OrderedDict(sorted(Capacities.items()))
     
     def extract_resistances(self):
+        """Extracts resistances from metadata.
+        """
         Res = {}
         Rcts = {}
         impedance_df = self.metadata[self.metadata["type"] == "impedance"]
@@ -70,6 +81,8 @@ class NASADataset():
         self.Rcts = collections.OrderedDict(sorted(Rcts.items()))
 
     def extract_measurement_times(self, battery_id="", measurement_type="discharge"):
+        """Extracts measurement times from metadata.
+        """
         discharge_times = {}
         impedance_times = {}
         
@@ -96,6 +109,8 @@ class NASADataset():
         
     
     def filter_rows(self, data_df, column_name, attribute):
+        """Filters rows of specific colums with specific values.
+        """
         return_df = pd.DataFrame([0])
         # return_df = None
         if type(attribute) == str:
@@ -105,11 +120,15 @@ class NASADataset():
         return return_df
 
     def normalize_data(self, data_list):
+        """Normalizes data.
+        """
         deltas = [i - min(data_list) for i in data_list]
         normlized_deltas = [i/max(deltas) for i in deltas]
         return normlized_deltas
     
     def get_positional_information(self):
+        """Extracts positional information from data.
+        """
         self.positions = {}
         for data_index, data in self.capacities.items():
             data_length = len(data)
@@ -117,6 +136,8 @@ class NASADataset():
 
     
     def get_temporal_information(self):
+        """Extracts temporal information from data.
+        """
         self.measurement_times = {}
         for data_index, _ in self.capacities.items():
             measurement_times = self.extract_measurement_times(battery_id=data_index)
@@ -125,7 +146,9 @@ class NASADataset():
 
         
     
-    def load(self, filter_attributes=[]):
+    def load(self):
+        """Loads NASA dataset.
+        """
         self.downloader.download_and_extract()
         self.converter.convert(self.batteries)
         self.metadata = pd.read_csv(f"{self.nasa_root}/metadata.csv")

@@ -5,27 +5,37 @@ import scipy
 
 # helper and converter methods from this notebook: https://www.kaggle.com/code/patrickfleith/nasa-battery-life-prediction-dataset-cleaning
 class NASAConverter():
+    """Class for conversion of NASA battery dataset.
+    """
     def __init__(self, nasa_dir="NASA_raw", output_dir="NASA") -> None:
         self.NASA_root = nasa_dir
         self.output_dir = output_dir
         self.filelist = []
 
     def get_filelist(self):
+        """Get file paths in source directory, filter for matlab files and sort.
+        """
         self.load_filelist()
         self.filter_matfiles_list()
         self.filelist = sorted(self.filelist)        
 
     # Helper functions
     def load_filelist(self):
+        """Load file paths from source directory.
+        """
         for dirname, _, filenames in os.walk(self.NASA_root):
             for filename in filenames:
                 self.filelist.append(os.path.join(dirname, filename))
 
     def filter_matfiles_list(self):
+        """Filter filelist for matlab files.
+        """
         self.filelist = [filepath for filepath in self.filelist if filepath.endswith('.mat')]
         self.filelist = [filepath for filepath in self.filelist if "BatteryAgingARC_25_26_27_28_P1" not in filepath] # removing duplicates
 
     def loadmat(self, filepath):
+        """Load matlab file.
+        """
         return scipy.io.loadmat(filepath, simplify_cells=True)
 
     def process_data_dict(self, data_dict):
@@ -52,13 +62,16 @@ class NASAConverter():
 
 
     def fill_metadata_row(self, test_type, test_start_time, test_temperature, battery_name, test_id, uid, filename, capacity, re, rct):
+        """Add row to metadata file.
+        """
         tmp_df = pd.DataFrame(data=[test_type, test_start_time, test_temperature, battery_name, test_id, uid, filename, capacity, re, rct])
         tmp_df = tmp_df.transpose()
         tmp_df.columns = self.metadata.columns
         self.metadata = pd.concat((self.metadata, tmp_df), axis=0)
 
     def extract_more_metadata(self, metadata_dict):
-        
+        """Extract capacity and resistances from metadata.
+        """
         if 'Capacity' in metadata_dict.keys():
             capacity = metadata_dict['Capacity']
         else:
@@ -77,10 +90,14 @@ class NASAConverter():
         return capacity, re, rct
 
     def save_metadata(self):
+        """Save metadata as csv file.
+        """
         if not os.path.exists(f'{self.output_dir}/metadata.csv'):
             self.metadata.to_csv(f'{self.output_dir}/metadata.csv', index=False)
 
     def convert(self, battery_ids):
+        """Convert data and extract metadata.
+        """
         self.get_filelist()
         print("Converting NASA dataset")
         if not os.path.exists(self.output_dir):

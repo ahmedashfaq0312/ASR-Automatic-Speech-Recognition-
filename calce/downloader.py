@@ -4,12 +4,16 @@ import requests
 import zipfile
 
 class CALCEDownloader():
+    """Class for downloading CALCE battery dataset.
+    """
     def __init__(self, battery_list, output_path="CALCE_raw") -> None:
         self.battery_list = battery_list
         self.download_base_url = "https://web.calce.umd.edu/batteries/data/" # CS2_35.zip
         self.output_path = output_path
         
     def download(self):
+        """Download dataset.
+        """
         print(f"Downloading CALCE dataset from {self.download_base_url}")
         for battery in self.battery_list:
             output_name = f"{battery}.zip"
@@ -36,5 +40,7 @@ class CALCEDownloader():
                 os.rename(f"{self.output_path}/{battery}/CS2_21_7_9b_10.txt", f"{self.output_path}/{battery}/CS2_21_7_09_10.txt")
 
     def download_and_extract(self):
+        """Wrapper for download and extraction.
+        """
         self.download()
         self.extract()
