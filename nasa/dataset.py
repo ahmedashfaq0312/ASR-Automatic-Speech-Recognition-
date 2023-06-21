@@ -12,12 +12,16 @@ class NASADataset():
     def __init__(self, batteries="all", normalize=None, clean_dataset=True) -> None: # batteries: ["all", "B0005", "["B0005", "B0006", "B0007", ...]"]; normalize: [None, "max", "first"]
         self.nasa_root = "NASA"
         self.dataset_dir = f"{self.nasa_root}/data"
-        self.batteries = batteries
+        if batteries == "all":
+            self.batteries = ['B0005', 'B0006', 'B0007', 'B0018', 'B0025', 'B0026', 'B0027', 'B0028', 'B0029', 'B0030', 'B0031', 'B0032', 'B0033', 'B0034', 'B0036', 'B0038', 'B0039', 'B0040', 'B0041', 'B0042', 'B0043', 'B0044', 'B0045', 'B0046', 'B0047', 'B0048', 'B0049', 'B0050', 'B0051', 'B0052', 'B0053', 'B0054', 'B0055', 'B0056']
+        else:
+            self.batteries = batteries
         self.normalize = normalize
         self.clean_dataset = clean_dataset
         self.downloader = NASADownoader()
         self.converter = NASAConverter()
         self.load()
+        self.get_dataset_length()
 
     def clean(self, data, thresh=0.1):
         """Clean peaks from data.
@@ -144,8 +148,11 @@ class NASADataset():
             normalized_measurement_times = self.normalize_data(measurement_times[data_index])
             self.measurement_times[data_index] = normalized_measurement_times
 
-        
-    
+    def get_dataset_length(self):
+        self.dataset_length = 0
+        for caps in self.capacities.values():
+            self.dataset_length += len(caps)
+
     def load(self):
         """Loads NASA dataset.
         """
