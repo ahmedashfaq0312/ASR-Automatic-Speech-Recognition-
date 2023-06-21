@@ -25,6 +25,7 @@ class CALCEDataset():
         self.downloader = CALCEDownloader(battery_list=self.batteries, output_path=self.calce_root)
         self.converter = CALCEConverter()
         self.load()
+        self.get_dataset_length()
 
     def drop_outlier(self, array,count,bins):
         """Filters and drops outliers in data.
@@ -81,6 +82,11 @@ class CALCEDataset():
         """Extracts temporal information from data.
         """
         pass
+
+    def get_dataset_length(self):
+        self.dataset_length = 0
+        for caps in self.capacities.values():
+            self.dataset_length += len(caps)
 
 
     def load(self):
