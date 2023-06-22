@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import pandas as pd
-import scipy
+from scipy import io
 
 # helper and converter methods from this notebook: https://www.kaggle.com/code/patrickfleith/nasa-battery-life-prediction-dataset-cleaning
 class NASAConverter():
@@ -34,7 +34,7 @@ class NASAConverter():
     def loadmat(self, filepath):
         """Load matlab file.
         """
-        return scipy.io.loadmat(filepath, simplify_cells=True)
+        return io.loadmat(filepath, simplify_cells=True)
 
     def process_data_dict(self, data_dict):
         """ Creates two dictionaries:
@@ -106,7 +106,7 @@ class NASAConverter():
         uid = 0
         for battery_name, mat_filepath in zip(self.battery_list, self.filelist):
             if battery_name in battery_ids:
-                mat_data = scipy.io.loadmat(mat_filepath, simplify_cells=True)
+                mat_data = io.loadmat(mat_filepath, simplify_cells=True)
                 print(mat_filepath[-10:],"-->", battery_name)
                 test_list = mat_data[battery_name]['cycle']
                 
