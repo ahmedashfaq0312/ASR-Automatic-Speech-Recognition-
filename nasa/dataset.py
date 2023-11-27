@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import ast
 import re
 from datetime import datetime
@@ -9,17 +10,22 @@ from .converter import NASAConverter
 class NASADataset():
     """Class for preprocessing and loading NASA battery dataset.
     """
-    def __init__(self, batteries="all", normalize=None, clean_dataset=True) -> None: # batteries: ["all", "B0005", "["B0005", "B0006", "B0007", ...]"]; normalize: [None, "max", "first"]
-        self.nasa_root = "NASA"
+    def __init__(self, dataset_config) -> None: # batteries: ["all", "B0005", "["B0005", "B0006", "B0007", ...]"]; normalize: [None, "max", "first"]
+        self.dataset_config = dataset_config
+        self.nasa_root = self.dataset_config.dataset_root_dir
         self.dataset_dir = f"{self.nasa_root}/data"
-        if batteries == "all":
-            self.batteries = ['B0005', 'B0006', 'B0007', 'B0018', 'B0025', 'B0026', 'B0027', 'B0028', 'B0029', 'B0030', 'B0031', 'B0032', 'B0033', 'B0034', 'B0036', 'B0038', 'B0039', 'B0040', 'B0041', 'B0042', 'B0043', 'B0044', 'B0045', 'B0046', 'B0047', 'B0048', 'B0049', 'B0050', 'B0051', 'B0052', 'B0053', 'B0054', 'B0055', 'B0056']
+        self.batteries = self.dataset_config.battery_list
+        if self.batteries == "all":
+            self.battery_cells = ['B0005', 'B0006', 'B0007', 'B0018', 'B0025', 'B0026', 'B0027', 'B0028', 'B0029', 'B0030', 'B0031', 'B0032', 'B0033', 'B0034', 'B0036', 'B0038', 'B0039', 'B0040', 'B0041', 'B0042', 'B0043', 'B0044', 'B0045', 'B0046', 'B0047', 'B0048', 'B0049', 'B0050', 'B0051', 'B0052', 'B0053', 'B0054', 'B0055', 'B0056']
         else:
-            self.batteries = batteries
-        self.normalize = normalize
-        self.clean_dataset = clean_dataset
-        self.downloader = NASADownoader()
-        self.converter = NASAConverter()
+            self.battery_cells = self.batteries
+        self.normalize = self.dataset_config.normalize_data
+        self.clean_data = self.dataset_config.clean_data
+        self.rated_capacity = self.dataset_config.rated_capacity
+        self.smooth_data = self.dataset_config.smooth_data
+        self.smoothing_kernel_width = self.dataset_config.smoothing_kernel_width
+        self.downloader = NASADownoader(output_path=self.nasa_root+"_raw")
+        self.converter = NASAConverter(nasa_dir=self.nasa_root+"_raw", output_dir=self.nasa_root)
         self.load()
         self.get_dataset_length()
 
@@ -38,6 +44,17 @@ class NASADataset():
                     data[i+1] = data[i]
                     peaks.append(i+1)
         return data
+
+    def smooth_capacities(self):
+        box = np.ones(self.smoothing_kernel_width) / self.smoothing_kernel_width
+        box_pts_half = self.smoothing_kernel_width // 2
+        for cell_id, cap in self.capacities.items():
+            cap_smooth = np.convolve(cap, box, mode="same").flatten().tolist()
+            # remove very different values at start and end
+            cap_smooth[:box_pts_half] = cap[:box_pts_half]
+            cap_smooth[-box_pts_half:] = cap[-box_pts_half:]
+            self.capacities[cell_id] = cap_smooth
+        return cap_smooth
     
     def extract_capacities(self):
         """Extracts capacities from metadata.
@@ -53,7 +70,7 @@ class NASADataset():
                 Capacities[df_line["battery_id"]] = []
             Capacities[df_line["battery_id"]].append(capacity)
         for bat_id, capacities in Capacities.items():
-            if self.clean_dataset:
+            if self.clean_data:
                 capacities = self.clean(capacities)
             if self.normalize == "max":
                 Capacities[bat_id] = [capacity/max(capacities) for capacity in capacities]
@@ -130,6 +147,16 @@ class NASADataset():
         normlized_deltas = [i/max(deltas) for i in deltas]
         return normlized_deltas
     
+    def normalize_capacities(self):
+        """Normalizes capacities.
+        """
+        for cell_id, cap in self.capacities.items():
+            # normalized_capacities = [(i - min(cap)) / (max(cap) - min(cap)) for i in cap]
+            capacity_deltas = [i - min(cap) for i in cap]
+            normalized_capacities = [i/max(capacity_deltas) for i in capacity_deltas]
+            # normalized_capacities = [(i - min(cap)) / max(cap) for i in cap]
+            self.capacities[cell_id] = normalized_capacities
+
     def get_positional_information(self):
         """Extracts positional information from data.
         """
@@ -153,16 +180,30 @@ class NASADataset():
         for caps in self.capacities.values():
             self.dataset_length += len(caps)
 
+    def extract_cell_dataframes(self):
+        self.dataframes = []
+        if type(self.battery_cells) == str:
+            self.dataframes.append(self.metadata[self.metadata["battery_id"] == self.battery_cells])
+        elif type(self.battery_cells) == list:
+            for cell in self.battery_cells:
+                self.dataframes.append(self.metadata[self.metadata["battery_id"] == cell])
+
     def load(self):
         """Loads NASA dataset.
         """
         self.downloader.download_and_extract()
-        self.converter.convert(self.batteries)
+        self.converter.convert(self.battery_cells)
         self.metadata = pd.read_csv(f"{self.nasa_root}/metadata.csv")
         if self.batteries == "all":
             self.extract_capacities()
             self.extract_resistances()
         else:
-            self.metadata = self.filter_rows(self.metadata, "battery_id", self.batteries)
+            self.metadata = self.filter_rows(self.metadata, "battery_id", self.battery_cells)
             self.extract_capacities()
             self.extract_resistances()
+        self.extract_cell_dataframes()
+        if self.normalize:
+            self.normalize_capacities()
+        if self.smooth_data:
+            self.smooth_capacities()
+

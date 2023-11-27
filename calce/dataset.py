@@ -9,11 +9,7 @@ from calce.downloader import CALCEDownloader
 class CALCEDataset():
     """Class for preprocessing and loading CALCE battery dataset.
     """
-    def __init__(self, batteries, calce_root="CALCE", file_type=".csv", clean_dataset=True):
-        self.calce_root = calce_root
-        self.batteries = batteries
-        self.file_type = file_type
-        self.clean_dataset = clean_dataset
+    def __init__(self, dataset_config):
         self.data_dict = {}
         self.capacities = {}
         self.sohs = {}
@@ -21,7 +17,18 @@ class CALCEDataset():
         self.measurement_times = {}
         self.ccct = {}
         self.cvct = {}
-        self.raw_output_path = self.calce_root + "_raw"
+
+        self.dataset_config = dataset_config
+        self.calce_root = self.dataset_config.dataset_root_dir
+        self.batteries = self.dataset_config.battery_list
+        self.battery_cells = self.batteries
+        self.file_type = self.dataset_config.file_type
+        # self.normalize = self.dataset_config.normalize_data
+        self.clean_data = self.dataset_config.clean_data
+        self.rated_capacity = self.dataset_config.rated_capacity
+        self.smooth_data = self.dataset_config.smooth_data
+        self.smoothing_kernel_width = self.dataset_config.smoothing_kernel_width
+
         self.downloader = CALCEDownloader(battery_list=self.batteries, output_path=self.calce_root)
         self.converter = CALCEConverter()
         self.load()
@@ -68,6 +75,17 @@ class CALCEDataset():
                     data[i+1] = data[i]
                     peaks.append(i+1)
         return data
+
+    def smooth_capacities(self):
+        box = np.ones(self.smoothing_kernel_width) / self.smoothing_kernel_width
+        box_pts_half = self.smoothing_kernel_width // 2
+        for cell_id, cap in self.capacities.items():
+            cap_smooth = np.convolve(cap, box, mode="same").flatten().tolist()
+            # remove very different values at start and end
+            cap_smooth[:box_pts_half] = cap[:box_pts_half]
+            cap_smooth[-box_pts_half:] = cap[-box_pts_half:]
+            self.capacities[cell_id] = cap_smooth
+        return cap_smooth
 
     def get_positional_information(self):
         """Extracts positional information from data.
@@ -130,7 +148,9 @@ class CALCEDataset():
                     path = glob.glob(self.calce_root + name + '/*.xlsx')
                 idx = np.argsort(dates)
                 path_sorted = (np.array(path)[idx]).tolist()
-                self.load_excel_csv(df, name, path_sorted)               
+                self.load_excel_csv(df, name, path_sorted)
+        if self.clean_data:
+            self.smooth_capacities()
 
     def load_txt(self, df, name, path_sorted):
         """Wrapper for loading txt data.
@@ -150,7 +170,7 @@ class CALCEDataset():
                 measurement_times.extend([time + time_offset for time in raw_time_hours])
                 time_offset += raw_time_hours[-1]
         capacities = [c / 100 for c in discharge_capacities]
-        if self.clean_dataset:
+        if self.clean_data:
             capacities = self.clean_peaks(capacities)
         self.capacities[name] = capacities
         self.measurement_times[name] = measurement_times
@@ -227,7 +247,7 @@ class CALCEDataset():
         measurement_times = measurement_times[idx]
         CCCT = CCCT[idx]
         CVCT = CVCT[idx]
-        if self.clean_dataset:
+        if self.clean_data:
             capacities = self.clean_peaks(capacities)
             health_indicator = self.clean_peaks(health_indicator)
             internal_resistance = self.clean_peaks(internal_resistance)

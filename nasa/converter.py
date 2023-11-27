@@ -105,33 +105,32 @@ class NASAConverter():
     
         uid = 0
         for battery_name, mat_filepath in zip(self.battery_list, self.filelist):
-            if battery_name in battery_ids:
-                mat_data = io.loadmat(mat_filepath, simplify_cells=True)
-                print(mat_filepath[-10:],"-->", battery_name)
-                test_list = mat_data[battery_name]['cycle']
+            mat_data = io.loadmat(mat_filepath, simplify_cells=True)
+            print(mat_filepath[-10:],"-->", battery_name)
+            test_list = mat_data[battery_name]['cycle']
+            
+            for test_id in range(len(test_list)):
                 
-                for test_id in range(len(test_list)):
-                    
-                    uid += 1
-                    filename = str(uid).zfill(5)+'.csv'
-                    data_dir = f"{self.output_dir}/data"
-                    if not os.path.exists(data_dir):
-                        os.makedirs(data_dir)
-                    filepath = f'./{data_dir}/{filename}'
-                    
-                    if not os.path.exists(filepath):
-                        # Extract the specific test data and save it as CSV! 
-                        ndict, metadata_dict = self.process_data_dict(test_list[test_id]['data'])
-                        test_df = pd.DataFrame.from_dict(ndict, orient='index')
-                        test_df = test_df.transpose()
+                uid += 1
+                filename = str(uid).zfill(5)+'.csv'
+                data_dir = f"{self.output_dir}/data"
+                if not os.path.exists(data_dir):
+                    os.makedirs(data_dir)
+                filepath = f'./{data_dir}/{filename}'
+                
+                if not os.path.exists(filepath):
+                    # Extract the specific test data and save it as CSV! 
+                    ndict, metadata_dict = self.process_data_dict(test_list[test_id]['data'])
+                    test_df = pd.DataFrame.from_dict(ndict, orient='index')
+                    test_df = test_df.transpose()
 
-                        test_df.to_csv(filepath, index=False)
-                                
-                        # Add test information to the metadata
-                        test_type = test_list[test_id]['type']
-                        test_start_time = test_list[test_id]['time']
-                        test_temperature = test_list[test_id]['ambient_temperature']
-                        
-                        capacity, re, rct = self.extract_more_metadata(metadata_dict)
-                        self.fill_metadata_row(test_type, test_start_time, test_temperature, battery_name, test_id, uid, filename, capacity, re, rct)
+                    test_df.to_csv(filepath, index=False)
+                            
+                    # Add test information to the metadata
+                    test_type = test_list[test_id]['type']
+                    test_start_time = test_list[test_id]['time']
+                    test_temperature = test_list[test_id]['ambient_temperature']
+                    
+                    capacity, re, rct = self.extract_more_metadata(metadata_dict)
+                    self.fill_metadata_row(test_type, test_start_time, test_temperature, battery_name, test_id, uid, filename, capacity, re, rct)
         self.save_metadata()
