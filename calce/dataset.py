@@ -3,8 +3,12 @@ import numpy as np
 import pandas as pd
 import glob
 import scipy
-from calce.converter import CALCEConverter
-from calce.downloader import CALCEDownloader
+try:
+    from calce.converter import CALCEConverter
+    from calce.downloader import CALCEDownloader
+except ModuleNotFoundError:
+    from rul_estimation_datasets.calce.converter import CALCEConverter
+    from rul_estimation_datasets.calce.downloader import CALCEDownloader
 
 class CALCEDataset():
     """Class for preprocessing and loading CALCE battery dataset.
