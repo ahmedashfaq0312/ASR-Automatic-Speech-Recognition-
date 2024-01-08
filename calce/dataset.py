@@ -153,7 +153,8 @@ class CALCEDataset():
                 idx = np.argsort(dates)
                 path_sorted = (np.array(path)[idx]).tolist()
                 self.load_excel_csv(df, name, path_sorted)
-        if self.clean_data:
+        self.raw_capacities = self.capacities.copy()
+        if self.smooth_data:
             self.smooth_capacities()
 
     def load_txt(self, df, name, path_sorted):

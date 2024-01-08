@@ -151,10 +151,7 @@ class NASADataset():
         """Normalizes capacities.
         """
         for cell_id, cap in self.capacities.items():
-            # normalized_capacities = [(i - min(cap)) / (max(cap) - min(cap)) for i in cap]
-            capacity_deltas = [i - min(cap) for i in cap]
-            normalized_capacities = [i/max(capacity_deltas) for i in capacity_deltas]
-            # normalized_capacities = [(i - min(cap)) / max(cap) for i in cap]
+            normalized_capacities = [i/self.rated_capacity for i in cap]
             self.capacities[cell_id] = normalized_capacities
 
     def get_positional_information(self):
@@ -174,6 +171,23 @@ class NASADataset():
             measurement_times = self.extract_measurement_times(battery_id=data_index)
             normalized_measurement_times = self.normalize_data(measurement_times[data_index])
             self.measurement_times[data_index] = normalized_measurement_times
+    
+    def get_eol_information(self):
+        self.eols = {}
+        self.cycles_until_eol = {}
+        eol_criterion = 0.7 if self.normalize else self.rated_capacity*0.7
+        for cell, caps in self.capacities.items():
+            try:
+                # calculate cycle where EOL is reached (if EOL not reached, cycle is set to -1)
+                eol_idx = next(x for x, val in enumerate(caps) if val <= eol_criterion)
+            except StopIteration:
+                eol_idx = -1
+            self.eols[cell] = eol_idx
+            if eol_idx == -1:
+                cycles_until_eol = [-1 for i in range(len(caps))]
+            else:
+                cycles_until_eol = [eol_idx - i for i in range(len(caps))]
+            self.cycles_until_eol[cell] = cycles_until_eol
 
     def get_dataset_length(self):
         self.dataset_length = 0
@@ -206,4 +220,5 @@ class NASADataset():
             self.normalize_capacities()
         if self.smooth_data:
             self.smooth_capacities()
+        self.get_eol_information()
 
