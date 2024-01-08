@@ -27,7 +27,7 @@ class CALCEDataset():
         self.batteries = self.dataset_config.battery_list
         self.battery_cells = self.batteries
         self.file_type = self.dataset_config.file_type
-        # self.normalize = self.dataset_config.normalize_data
+        self.normalize = self.dataset_config.normalize_data
         self.clean_data = self.dataset_config.clean_data
         self.rated_capacity = self.dataset_config.rated_capacity
         self.smooth_data = self.dataset_config.smooth_data
@@ -105,6 +105,23 @@ class CALCEDataset():
         """
         pass
 
+    def get_eol_information(self):
+        self.eols = {}
+        self.cycles_until_eol = {}
+        eol_criterion = 0.7 if self.normalize else self.rated_capacity*0.7
+        for cell, caps in self.capacities.items():
+            try:
+                # calculate cycle where EOL is reached (if EOL not reached, cycle is set to -1)
+                eol_idx = next(x for x, val in enumerate(caps) if val <= eol_criterion)
+            except StopIteration:
+                eol_idx = -1
+            self.eols[cell] = eol_idx
+            if eol_idx == -1:
+                cycles_until_eol = [-1 for i in range(len(caps))]
+            else:
+                cycles_until_eol = [eol_idx - i for i in range(len(caps))]
+            self.cycles_until_eol[cell] = cycles_until_eol
+
     def get_dataset_length(self):
         self.dataset_length = 0
         for caps in self.capacities.values():
@@ -156,6 +173,7 @@ class CALCEDataset():
         self.raw_capacities = self.capacities.copy()
         if self.smooth_data:
             self.smooth_capacities()
+        self.get_eol_information()
 
     def load_txt(self, df, name, path_sorted):
         """Wrapper for loading txt data.
