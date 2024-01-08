@@ -57,7 +57,7 @@ class SiCWellDataset():
             self.batteries = ["AC19", "AC21"]
         elif self.batteries == "realistic":
             # load batteries from realistic cycling
-            self.batteries == ["AC22", "AC23", "AC24", "AC25", "AC26", "AC27"]
+            self.batteries = ["AC22", "AC23", "AC24", "AC25", "AC26", "AC27"]
         elif self.batteries == "sinusoidal":
             # load batteries from sinusoidal cycling
             self.batteries = ["AC01", "AC02", "AC03", "AC04", "AC05", "AC06", "AC07", "AC08", "AC09", "AC10", "AC11", "AC12", "AC13", "AC14", "AC15", "AC16", "AC17", "AC18"]
@@ -121,7 +121,8 @@ class SiCWellDataset():
             self.sinusoidal_cycle_data, self.sinusoidal_cycle_cells = self.load_cycling_data(sinusoidal_cycle_path, "sinusoidal")
         else:
             print(f"Path {sinusoidal_cycle_path} does not exist")
-        
-        if self.clean_data:
+
+        self.raw_capacities = self.capacities.copy()
+        if self.smooth_data:
             self.smooth_capacities()
 

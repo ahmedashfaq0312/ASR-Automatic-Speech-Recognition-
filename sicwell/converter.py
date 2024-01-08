@@ -37,10 +37,12 @@ class SiCWellConverter():
 
         measurement_path = path + cell_id
         file_list = [measurement_path + "/" + file for file in os.listdir(measurement_path) if file.endswith(".hdf5")]
-
-        for file in file_list:
+        filename_list = [os.path.split(file)[1] for file in file_list]
+        filename_list_sorted = sorted(filename_list)
+        for file in filename_list_sorted:
+            file_path = measurement_path + "/" + file
             try:
-                capacity, internal_resistance, sampling_rate, soh_capacity, temperature, time = self.load_measurement(file)
+                capacity, internal_resistance, sampling_rate, soh_capacity, temperature, time = self.load_measurement(file_path)
             except OSError:
                 continue
             capacities.append(capacity)
@@ -55,8 +57,8 @@ class SiCWellConverter():
         cell_ids = [cell_id] * len(capacities)
 
         cell_data = pd.DataFrame(
-            list(zip(ids, cell_ids, times, capacities, internal_resistances, sohs, temperatures, sampling_rates)),
-            columns=["ID", "Cell_ID", "Time", "Capacity", "Internal_Resistance", "SoH", "Temperature", "Sampling_Rate"]
+            list(zip(ids, cell_ids, filename_list_sorted, times, capacities, internal_resistances, sohs, temperatures, sampling_rates)),
+            columns=["ID", "Cell_ID", "Filename", "Time", "Capacity", "Internal_Resistance", "SoH", "Temperature", "Sampling_Rate"]
         )
         return cell_data
 
@@ -74,7 +76,7 @@ class SiCWellConverter():
 
             for cell_id in cell_ids:
                 # Skip measurements for cells AC22, AC23 and AC24 
-                # since there is an error for capacity degradation in the dataset
+                # since there is an error for capacity degradation in the dataset (no degradation)
                 if cell_id in ["AC22", "AC23", "AC24"]:
                     continue
                 cell_df = self.load_cell_measurements(cycle_path, cell_id)
