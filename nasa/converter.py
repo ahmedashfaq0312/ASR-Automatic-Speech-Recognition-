@@ -93,7 +93,7 @@ class NASAConverter():
         if not os.path.exists(f'{self.output_dir}/metadata.csv'):
             self.metadata.to_csv(f'{self.output_dir}/metadata.csv', index=False)
 
-    def convert(self, battery_ids):
+    def convert(self):
         """Convert data and extract metadata.
         """
         self.get_filelist()

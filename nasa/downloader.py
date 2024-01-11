@@ -10,36 +10,44 @@ class NASADownoader():
         self.download_url = "https://phm-datasets.s3.amazonaws.com/NASA/5.+Battery+Data+Set.zip"
         self.output_name = "NASA.zip"
         self.output_path = output_path
-        self.unzip_folder = "5. Battery Data Set"
+        self.download_file_path = f"{self.output_path}/{self.output_name}"
+        self.unzip_folder = f"{self.output_path}/5. Battery Data Set"
+        if not os.path.exists(self.output_path):
+            os.makedirs(self.output_path)
         
     def download(self):
         """Download dataset.
         """
-        if not os.path.exists(self.output_name):
+        if not os.path.exists(self.download_file_path):
             print(f"Downloading NASA dataset from {self.download_url}")
             with requests.get(self.download_url, stream=True) as r:
                 r.raise_for_status()
-                with open(self.output_name, 'wb') as f:
+                with open(self.download_file_path, 'wb') as f:
                     for chunk in r.iter_content(chunk_size=65536):  
                         f.write(chunk)
+        
+        if os.path.exists(self.output_name):
+            os.rename(self.output_path, self.download_file_path)
     
     def extract(self, zipped_file="NASA.zip", to_folder="."):
         """ Extract a zip file including any nested zip files.
             Delete the zip file(s) after extraction.
         """
-        if os.path.exists(zipped_file):
-            print(f"Extracting {zipped_file}")
-            with zipfile.ZipFile(zipped_file, 'r') as zfile:
-                zfile.extractall(path=to_folder)
-            if os.path.exists(self.unzip_folder) and not os.path.exists(self.output_path):
-                os.rename(self.unzip_folder, self.output_path)
-            if zipped_file != self.output_name:
-                os.remove(zipped_file)
-            for root, _, files in os.walk(self.output_path):
-                for filename in files:
-                    if re.search(r'\.zip$', filename):
-                        filespec = os.path.join(root, filename)
-                        self.extract(filespec, root)
+        if os.path.exists(self.download_file_path):
+            print(f"Extracting {self.download_file_path}")
+            if not os.path.exists(self.unzip_folder):
+                with zipfile.ZipFile(self.download_file_path, 'r') as zfile:
+                    zfile.extractall(path=self.output_path)
+            
+            for root, _, files in os.walk(self.unzip_folder):
+                for file in files:
+                    name, ext = os.path.splitext(file)
+                    if os.path.exists(f"{self.unzip_folder}/{file}") and ext == ".zip":
+                        with zipfile.ZipFile(f"{self.unzip_folder}/{file}", 'r') as zfile:
+                            zfile.extractall(path=self.unzip_folder) 
+                        os.remove(f"{self.unzip_folder}/{file}")
+                    elif ext == ".txt":
+                        os.remove(f"{self.unzip_folder}/{file}")
 
     def download_and_extract(self):
         """Wrapper for download and extraction.

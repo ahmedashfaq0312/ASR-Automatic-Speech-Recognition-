@@ -206,7 +206,7 @@ class NASADataset():
         """Loads NASA dataset.
         """
         self.downloader.download_and_extract()
-        self.converter.convert(self.battery_cells)
+        self.converter.convert()
         self.metadata = pd.read_csv(f"{self.nasa_root}/metadata.csv")
         if self.batteries == "all":
             self.extract_capacities()
