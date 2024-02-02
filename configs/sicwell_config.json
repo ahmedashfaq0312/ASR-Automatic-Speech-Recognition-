@@ -1,0 +1,11 @@
+{
+    "training_type": "cell_epoch",
+    "dataset": "SiCWell",
+    "dataset_root_dir": "/home/tobias/data/PowerizeD/Daten/SiCWell/",
+    "battery_list": ["AC19", "AC21"],
+    "normalize_data": true,
+    "clean_data": true,
+    "smooth_data": false,
+    "smoothing_kernel_width": 50,
+    "rated_capacity": 56
+}
