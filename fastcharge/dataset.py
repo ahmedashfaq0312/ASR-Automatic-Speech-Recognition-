@@ -6,6 +6,7 @@ from .converter import FastChargeConverter
 class FastChargeDataset():
     def __init__(self, dataset_config):
         self.capacities = {}
+        self.eols = {}
         self.measurement_times = {}
         self.sohs = {}
 
@@ -62,8 +63,14 @@ class FastChargeDataset():
             cap_smooth[:box_pts_half] = cap[:box_pts_half]
             cap_smooth[-box_pts_half:] = cap[-box_pts_half:]
             self.capacities[cell_id] = cap_smooth
-            # self.capacities[f"{cell_id}_smoothed"] = cap_smooth
         return cap_smooth
+    
+    def get_eol_information(self):
+        self.cycles_until_eol = {}
+        for cell, caps in self.capacities.items():
+            eol = self.eols[cell]
+            cycles_until_eol = [eol - i for i in range(len(caps))]
+            self.cycles_until_eol[cell] = cycles_until_eol
 
     def load(self):
         """Loads all cycling data for FastCharge dataset.
@@ -73,15 +80,18 @@ class FastChargeDataset():
         for file_time in self.concat_data_file_times:
             file = f"{self.fastcharge_root}/FastCharge_{file_time}.csv"
             if os.path.exists(file):
-                data = pd.read_csv(file)
+                data = pd.read_csv(file, index_col=0)
                 experiments = data["Experiment"].unique().tolist()
                 for experiment in experiments:
                     tmp_data = data[data["Experiment"] == experiment]
-                    self.capacities[f"{file_time}_{experiment}"] = tmp_data["QDischarge"].tolist()
+                    self.capacities[experiment] = tmp_data["QDischarge"].tolist()
+                    eol = int(tmp_data["Cycle_Life"].tolist()[0])
+                    self.eols[experiment] = eol
             else:
                 print(f"Path {file} does not exist")
         if self.normalize:
             self.normalize_capacities()
-
-
+        if self.smooth_data:
+            self.smooth_capacities()
+        self.get_eol_information()
 

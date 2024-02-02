@@ -116,7 +116,7 @@ class NASAConverter():
                 data_dir = f"{self.output_dir}/data"
                 if not os.path.exists(data_dir):
                     os.makedirs(data_dir)
-                filepath = f'./{data_dir}/{filename}'
+                filepath = f'{data_dir}/{filename}'
                 
                 if not os.path.exists(filepath):
                     # Extract the specific test data and save it as CSV! 

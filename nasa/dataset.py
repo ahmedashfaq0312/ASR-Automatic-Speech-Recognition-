@@ -127,6 +127,28 @@ class NASADataset():
                 discharge_times[df_line["battery_id"]] = []
             discharge_times[df_line["battery_id"]].append(timestamp_seconds)
         return discharge_times
+
+    def extract_temperatures(self):
+        """Extracts resistances from metadata.
+        """
+        ambient_temperatures_charge = {}
+        ambient_temperatures_discharge = {}
+        charge_df = self.metadata[self.metadata["type"] == "charge"]
+        discharge_df = self.metadata[self.metadata["type"] == "discharge"]
+        for _, df_line in charge_df.iterrows():
+            ambient_temperature = float(df_line["ambient_temperature"])
+            if df_line["battery_id"] not in ambient_temperatures_charge:
+                ambient_temperatures_charge[df_line["battery_id"]] = []
+            ambient_temperatures_charge[df_line["battery_id"]].append(ambient_temperature)
+        
+        for _, df_line in discharge_df.iterrows():
+            ambient_temperature = float(df_line["ambient_temperature"])
+            if df_line["battery_id"] not in ambient_temperatures_discharge:
+                ambient_temperatures_discharge[df_line["battery_id"]] = []
+            ambient_temperatures_discharge[df_line["battery_id"]].append(ambient_temperature)
+        
+        self.ambient_temperatures_charge = collections.OrderedDict(sorted(ambient_temperatures_charge.items()))
+        self.ambient_temperatures_discharge = collections.OrderedDict(sorted(ambient_temperatures_discharge.items()))
         
     
     def filter_rows(self, data_df, column_name, attribute):
@@ -195,12 +217,12 @@ class NASADataset():
             self.dataset_length += len(caps)
 
     def extract_cell_dataframes(self):
-        self.dataframes = []
+        self.cell_data_dfs = {}
         if type(self.battery_cells) == str:
-            self.dataframes.append(self.metadata[self.metadata["battery_id"] == self.battery_cells])
+            self.cell_data_dfs[self.battery_cells] = self.metadata[self.metadata["battery_id"] == self.battery_cells]
         elif type(self.battery_cells) == list:
             for cell in self.battery_cells:
-                self.dataframes.append(self.metadata[self.metadata["battery_id"] == cell])
+                self.cell_data_dfs[cell] = self.metadata[self.metadata["battery_id"] == cell]
 
     def load(self):
         """Loads NASA dataset.
@@ -211,10 +233,12 @@ class NASADataset():
         if self.batteries == "all":
             self.extract_capacities()
             self.extract_resistances()
+            self.extract_temperatures()
         else:
             self.metadata = self.filter_rows(self.metadata, "battery_id", self.battery_cells)
             self.extract_capacities()
             self.extract_resistances()
+            self.extract_temperatures()
         self.extract_cell_dataframes()
         if self.normalize:
             self.normalize_capacities()
