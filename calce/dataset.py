@@ -132,44 +132,63 @@ class CALCEDataset():
         """Loads CALCE dataset.
         """
         self.downloader.download_and_extract()
-        for name in self.batteries:
-            print('Load CALCE Dataset ' + name + ' ...')
-            if name in ["CS2_8", "CS2_21"]:
-                path = glob.glob(self.calce_root + "/" + name + '/*.txt')
-            else:
-                path = glob.glob(self.calce_root + "/" + name + '/*.xlsx')
-            
-            dates = []
-            paths = []
-            for p in path:
+        overview_path = self.calce_root + "/overview.csv"
+        if not os.path.exists(overview_path):
+            overview_df = pd.DataFrame([])
+            for name in self.batteries:
+                print('Load CALCE Dataset ' + name + ' ...')
                 if name in ["CS2_8", "CS2_21"]:
-                    df = pd.read_csv(p, sep="\t", dtype=float)
-                    date = df['Time'][0]
+                    path = glob.glob(self.calce_root + "/" + name + '/*.txt')
+                else:
+                    path = glob.glob(self.calce_root + "/" + name + '/*.xlsx')
+                # path = sorted(path)
+                dates = []
+                paths = []
+                cell_dfs = []
+                for p in path:
+                    if name in ["CS2_8", "CS2_21"]:
+                        df = pd.read_csv(p, sep="\t", dtype=float)
+                        date = df['Time'][0]
+                    else:
+                        if self.file_type == ".csv":
+                            csv_path = p.replace(".xlsx", ".csv")
+                            if not os.path.exists(csv_path):
+                                self.converter.convert(p)
+                            p = csv_path
+                            df = pd.read_csv(p)
+                            paths.append(csv_path)
+                            date = pd.Timestamp(df['Date_Time'][0])
+                        elif self.file_type == ".xlsx":
+                            df = pd.read_excel(p, sheet_name=1)
+                    cell_id_list = [name for _ in range(len(df))]
+                    df.insert(1, "Cell_ID", cell_id_list, True)
+                    cell_dfs.append(df)
+                    print('Load ' + str(p) + ' ...')
+                    dates.append(date)
+                if name in ["CS2_8", "CS2_21"]:
+                    path = glob.glob(self.calce_root + "/" + name + '/*.txt')
+                    path_sorted = sorted(path)
+                    self.load_txt(df, name, path_sorted) 
                 else:
                     if self.file_type == ".csv":
-                        csv_path = p.replace(".xlsx", ".csv")
-                        if not os.path.exists(csv_path):
-                            self.converter.convert(p)
-                        p = csv_path
-                        df = pd.read_csv(p)
-                        paths.append(csv_path)
-                        date = pd.Timestamp(df['Date_Time'][0])
+                        path = paths
                     elif self.file_type == ".xlsx":
-                        df = pd.read_excel(p, sheet_name=1)
-                print('Load ' + str(p) + ' ...')
-                dates.append(date)
-            if name in ["CS2_8", "CS2_21"]:
-                path = glob.glob(self.calce_root + "/" + name + '/*.txt')
-                path_sorted = sorted(path)
-                self.load_txt(df, name, path_sorted) 
-            else:
-                if self.file_type == ".csv":
-                    path = paths
-                elif self.file_type == ".xlsx":
-                    path = glob.glob(self.calce_root + name + '/*.xlsx')
-                idx = np.argsort(dates)
-                path_sorted = (np.array(path)[idx]).tolist()
-                self.load_excel_csv(df, name, path_sorted)
+                        path = glob.glob(self.calce_root + name + '/*.xlsx')
+                    idx = np.argsort(dates)
+                    path_sorted = (np.array(path)[idx]).tolist()
+                    df_result = self.load_excel_csv(df, name, path_sorted)
+                    cell_id_list = [name for _ in range(len(df_result))]
+                    df_result.insert(1, "cell_id", cell_id_list, True)
+                    cell_dfs = pd.concat(cell_dfs)
+                    overview_df = pd.concat([overview_df, df_result], ignore_index=True)
+            overview_df.to_csv(overview_path)
+        else:
+            overview_df = pd.read_csv(overview_path, index_col=0)
+            self.raw_capacities = {}
+            for name in self.batteries:
+                cell_df = overview_df[overview_df["cell_id"]==name]
+                self.capacities[name] = cell_df["capacity"].tolist()
+        self.data_df = overview_df
         self.raw_capacities = self.capacities.copy()
         if self.smooth_data:
             self.smooth_capacities()
@@ -291,3 +310,4 @@ class CALCEDataset():
         self.measurement_times[name] = measurement_times
         self.ccct[name] = CCCT
         self.cvct[name] = CVCT
+        return df_result
