@@ -27,7 +27,7 @@ class NASADownoader():
                         f.write(chunk)
         
         if os.path.exists(self.output_name):
-            os.rename(self.output_path, self.download_file_path)
+            os.rename(self.output_name, self.download_file_path)
     
     def extract(self, zipped_file="NASA.zip", to_folder="."):
         """ Extract a zip file including any nested zip files.

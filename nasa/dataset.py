@@ -6,6 +6,7 @@ from datetime import datetime
 import collections
 from .downloader import NASADownoader
 from .converter import NASAConverter
+from rul_estimation_datasets.dataset_utils import get_positional_information, get_eol_information
 
 class NASADataset():
     """Class for preprocessing and loading NASA battery dataset.
@@ -102,15 +103,12 @@ class NASADataset():
         self.Res = collections.OrderedDict(sorted(Res.items()))
         self.Rcts = collections.OrderedDict(sorted(Rcts.items()))
 
-    def extract_measurement_times(self, battery_id="", measurement_type="discharge"):
+    def extract_measurement_times(self, data_df, battery_id="", measurement_type="discharge"):
         """Extracts measurement times from metadata.
         """
-        discharge_times = {}
-        impedance_times = {}
-        
+        measurement_times = []
         epoch_time = datetime(1970, 1, 1)
-        
-        data_df = self.metadata[self.metadata["type"] == measurement_type]
+    
         if battery_id != "":
             data_df = data_df[data_df["battery_id"] == battery_id]
         for _, df_line in data_df.iterrows():
@@ -124,10 +122,8 @@ class NASADataset():
             except ValueError:
                 print("Error when reading timestamp")
                 pass
-            if df_line["battery_id"] not in discharge_times:
-                discharge_times[df_line["battery_id"]] = []
-            discharge_times[df_line["battery_id"]].append(timestamp_seconds)
-        return discharge_times
+            measurement_times.append(timestamp_seconds)
+        return measurement_times
 
     def extract_temperatures(self):
         """Extracts resistances from metadata.
@@ -163,56 +159,48 @@ class NASADataset():
             return_df = data_df[data_df[column_name].isin(attribute)]
         return return_df
 
-    def normalize_data(self, data_list):
+    def normalize_measurement_times(self, measurement_times):
         """Normalizes data.
         """
-        deltas = [i - min(data_list) for i in data_list]
-        normlized_deltas = [i/max(deltas) for i in deltas]
-        return normlized_deltas
+        normalized_times = [i-min(measurement_times) for i in measurement_times]
+        return normalized_times
     
     def normalize_capacities(self):
         """Normalizes capacities.
         """
-        train_capacities = self.raw_train_df[self.raw_train_df["type"] == "discharge"]["Capacity"].astype(float)
+        train_capacities = self.raw_train_df["Capacity"].astype(float)
         normalized__train_capacities = [i/self.rated_capacity for i in train_capacities]
-        self.train_df["Cell_ID"] = self.raw_train_df[self.raw_train_df["type"] == "discharge"]["battery_id"]
+        self.train_df["Cell_ID"] = self.raw_train_df["battery_id"].to_list()
         self.train_df["Capacity"] = normalized__train_capacities
-        test_capacities = self.raw_test_df[self.raw_test_df["type"] == "discharge"]["Capacity"].astype(float)
+        test_capacities = self.raw_test_df["Capacity"].astype(float)
         normalized_test_capacities = [i/self.rated_capacity for i in test_capacities]
-        self.test_df["Cell_ID"] = self.raw_test_df[self.raw_test_df["type"] == "discharge"]["battery_id"]
+        self.test_df["Cell_ID"] = self.raw_test_df["battery_id"].to_list()
         self.test_df["Capacity"] = normalized_test_capacities
 
-    def get_positional_information(self):
-        """Extracts positional information from data.
-        """
-        self.positions = {}
-        for data_index, data in self.capacities.items():
-            data_length = len(data)
-            self.positions[data_index] = list(range(1, data_length+1))
-
-    
-    def get_temporal_information(self):
+    def get_temporal_information(self, data_df):
         """Extracts temporal information from data.
         """
-        self.measurement_times = {}
-        for data_index, _ in self.capacities.items():
-            measurement_times = self.extract_measurement_times(battery_id=data_index)
-            normalized_measurement_times = self.normalize_data(measurement_times[data_index])
-            self.measurement_times[data_index] = normalized_measurement_times
+        measurement_times = []
+        unique_cells = data_df["battery_id"].unique()
+        for cell in unique_cells:
+            # cell_df = data_df[data_df["battery_id"] == cell]
+            tmp_times = self.extract_measurement_times(data_df, battery_id=cell)
+            normalized_measurement_times = self.normalize_measurement_times(tmp_times)
+            measurement_times.extend(normalized_measurement_times)
+        return measurement_times
     
     def get_eol_information_df(self, data_df):
-        self.unique_cells = data_df["Cell_ID"].unique()
-        eol_criterion = 0.7 if self.normalize else self.rated_capacity*0.7
         eols = []
         cycles_until_eols = []
-        for cell in self.unique_cells:
+        unique_cells = data_df["Cell_ID"].unique()
+        eol_criterion = 0.7 if self.normalize else self.rated_capacity*0.7
+        for cell in unique_cells:
             caps = data_df[data_df["Cell_ID"] == cell]["Capacity"].astype(float)
             try:
                 # calculate cycle where EOL is reached (if EOL not reached, cycle is set to -1)
                 eol_idx = next(x for x, val in enumerate(caps) if val <= eol_criterion)
             except StopIteration:
                 eol_idx = -1
-            self.eols[cell] = eol_idx
             eols.extend([eol_idx for _ in range(len(caps))])
             if eol_idx == -1:
                 cycles_until_eol = [-1 for i in range(len(caps))]
@@ -224,33 +212,36 @@ class NASADataset():
 
 
     def get_eol_information(self):
-        self.eols = {}
-        self.cycles_until_eol = {}
-        
-        self.get_eol_information_df(self.train_df)
-        self.get_eol_information_df(self.test_df)
-        
+        get_eol_information(self.train_df, self.normalize, self.rated_capacity)
+        get_eol_information(self.test_df, self.normalize, self.rated_capacity)
 
     def get_dataset_length(self):
         self.train_dataset_length = len(self.train_df["Capacity"])
         self.trest_dataset_length = len(self.test_df["Capacity"])
 
+    def preprocessing(self):
+        self.train_df = pd.DataFrame([])
+        self.test_df = pd.DataFrame([])
+        self.metadata = pd.read_csv(f"{self.nasa_root}/metadata.csv")
+        self.raw_train_df = self.filter_rows(self.metadata, "battery_id", self.train_cells)
+        self.raw_test_df = self.filter_rows(self.metadata, "battery_id", self.test_cells)
+        self.raw_train_df = self.raw_train_df[self.raw_train_df["type"] == "discharge"]
+        self.raw_test_df = self.raw_test_df[self.raw_test_df["type"] == "discharge"]
+        self.train_df["Cycle"] = get_positional_information(self.raw_train_df, cell_column_name="battery_id")
+        self.test_df["Cycle"] = get_positional_information(self.raw_test_df, cell_column_name="battery_id")
+        self.train_df["Time"] = self.get_temporal_information(self.raw_train_df)
+        self.test_df["Time"] = self.get_temporal_information(self.raw_test_df)
+
+        if self.normalize:
+            self.normalize_capacities()
+        # if self.smooth_data:
+        #     self.smooth_capacities()
+        self.get_eol_information()
+        
 
     def load(self):
         """Loads NASA dataset.
         """
-        self.train_df = pd.DataFrame([])
-        self.test_df = pd.DataFrame([])
         self.downloader.download_and_extract()
         self.converter.convert()
-        self.metadata = pd.read_csv(f"{self.nasa_root}/metadata.csv")
-
-        self.raw_train_df = self.filter_rows(self.metadata, "battery_id", self.train_cells)
-        self.raw_test_df = self.filter_rows(self.metadata, "battery_id", self.test_cells)
-
-        if self.normalize:
-            self.normalize_capacities()
-        if self.smooth_data:
-            self.smooth_capacities()
-        self.get_eol_information()
-
+        self.preprocessing()
