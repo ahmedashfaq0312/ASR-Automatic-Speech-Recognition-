@@ -97,8 +97,8 @@ class NASAConverter():
         """Convert data and extract metadata.
         """
         self.get_filelist()
-        print("Converting NASA dataset")
         if not os.path.exists(self.output_dir):
+            print("Converting NASA dataset")
             os.makedirs(self.output_dir)
         self.metadata = pd.DataFrame(data=None, columns=['type', 'start_time', 'ambient_temperature', 'battery_id', 'test_id', 'uid', 'filename', 'Capacity', 'Re', 'Rct'])
         self.battery_list = [item.split('/')[-1].split('.')[0] for item in self.filelist]
@@ -106,7 +106,7 @@ class NASAConverter():
         uid = 0
         for battery_name, mat_filepath in zip(self.battery_list, self.filelist):
             mat_data = io.loadmat(mat_filepath, simplify_cells=True)
-            print(mat_filepath[-10:],"-->", battery_name)
+            # print(mat_filepath[-10:],"-->", battery_name)
             test_list = mat_data[battery_name]['cycle']
             
             for test_id in range(len(test_list)):

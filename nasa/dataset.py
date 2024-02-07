@@ -14,11 +14,12 @@ class NASADataset():
         self.dataset_config = dataset_config
         self.nasa_root = self.dataset_config.dataset_root_dir
         self.dataset_dir = f"{self.nasa_root}/data"
-        self.batteries = self.dataset_config.battery_list
-        if self.batteries == "all":
-            self.battery_cells = ['B0005', 'B0006', 'B0007', 'B0018', 'B0025', 'B0026', 'B0027', 'B0028', 'B0029', 'B0030', 'B0031', 'B0032', 'B0033', 'B0034', 'B0036', 'B0038', 'B0039', 'B0040', 'B0041', 'B0042', 'B0043', 'B0044', 'B0045', 'B0046', 'B0047', 'B0048', 'B0049', 'B0050', 'B0051', 'B0052', 'B0053', 'B0054', 'B0055', 'B0056']
+        self.train_batteries = self.dataset_config.train_cells
+        if self.train_batteries == "all":
+            self.train_cells = ['B0005', 'B0006', 'B0007', 'B0018', 'B0025', 'B0026', 'B0027', 'B0028', 'B0029', 'B0030', 'B0031', 'B0032', 'B0033', 'B0034', 'B0036', 'B0038', 'B0039', 'B0040', 'B0041', 'B0042', 'B0043', 'B0044', 'B0045', 'B0046', 'B0047', 'B0048', 'B0049', 'B0050', 'B0051', 'B0052', 'B0053', 'B0054', 'B0055', 'B0056']
         else:
-            self.battery_cells = self.batteries
+            self.train_cells = self.train_batteries
+        self.test_cells = self.dataset_config.test_cells
         self.normalize = self.dataset_config.normalize_data
         self.clean_data = self.dataset_config.clean_data
         self.rated_capacity = self.dataset_config.rated_capacity
@@ -172,9 +173,14 @@ class NASADataset():
     def normalize_capacities(self):
         """Normalizes capacities.
         """
-        for cell_id, cap in self.capacities.items():
-            normalized_capacities = [i/self.rated_capacity for i in cap]
-            self.capacities[cell_id] = normalized_capacities
+        train_capacities = self.raw_train_df[self.raw_train_df["type"] == "discharge"]["Capacity"].astype(float)
+        normalized__train_capacities = [i/self.rated_capacity for i in train_capacities]
+        self.train_df["Cell_ID"] = self.raw_train_df[self.raw_train_df["type"] == "discharge"]["battery_id"]
+        self.train_df["Capacity"] = normalized__train_capacities
+        test_capacities = self.raw_test_df[self.raw_test_df["type"] == "discharge"]["Capacity"].astype(float)
+        normalized_test_capacities = [i/self.rated_capacity for i in test_capacities]
+        self.test_df["Cell_ID"] = self.raw_test_df[self.raw_test_df["type"] == "discharge"]["battery_id"]
+        self.test_df["Capacity"] = normalized_test_capacities
 
     def get_positional_information(self):
         """Extracts positional information from data.
@@ -194,52 +200,54 @@ class NASADataset():
             normalized_measurement_times = self.normalize_data(measurement_times[data_index])
             self.measurement_times[data_index] = normalized_measurement_times
     
-    def get_eol_information(self):
-        self.eols = {}
-        self.cycles_until_eol = {}
+    def get_eol_information_df(self, data_df):
+        self.unique_cells = data_df["Cell_ID"].unique()
         eol_criterion = 0.7 if self.normalize else self.rated_capacity*0.7
-        for cell, caps in self.capacities.items():
+        eols = []
+        cycles_until_eols = []
+        for cell in self.unique_cells:
+            caps = data_df[data_df["Cell_ID"] == cell]["Capacity"].astype(float)
             try:
                 # calculate cycle where EOL is reached (if EOL not reached, cycle is set to -1)
                 eol_idx = next(x for x, val in enumerate(caps) if val <= eol_criterion)
             except StopIteration:
                 eol_idx = -1
             self.eols[cell] = eol_idx
+            eols.extend([eol_idx for _ in range(len(caps))])
             if eol_idx == -1:
                 cycles_until_eol = [-1 for i in range(len(caps))]
             else:
                 cycles_until_eol = [eol_idx - i for i in range(len(caps))]
-            self.cycles_until_eol[cell] = cycles_until_eol
+            cycles_until_eols.extend(cycles_until_eol)
+        data_df["EOL_cycle"] = eols
+        data_df["Cycles_to_EOL"] = cycles_until_eols
+
+
+    def get_eol_information(self):
+        self.eols = {}
+        self.cycles_until_eol = {}
+        
+        self.get_eol_information_df(self.train_df)
+        self.get_eol_information_df(self.test_df)
+        
 
     def get_dataset_length(self):
-        self.dataset_length = 0
-        for caps in self.capacities.values():
-            self.dataset_length += len(caps)
+        self.train_dataset_length = len(self.train_df["Capacity"])
+        self.trest_dataset_length = len(self.test_df["Capacity"])
 
-    def extract_cell_dataframes(self):
-        self.cell_data_dfs = {}
-        if type(self.battery_cells) == str:
-            self.cell_data_dfs[self.battery_cells] = self.metadata[self.metadata["battery_id"] == self.battery_cells]
-        elif type(self.battery_cells) == list:
-            for cell in self.battery_cells:
-                self.cell_data_dfs[cell] = self.metadata[self.metadata["battery_id"] == cell]
 
     def load(self):
         """Loads NASA dataset.
         """
+        self.train_df = pd.DataFrame([])
+        self.test_df = pd.DataFrame([])
         self.downloader.download_and_extract()
         self.converter.convert()
         self.metadata = pd.read_csv(f"{self.nasa_root}/metadata.csv")
-        if self.batteries == "all":
-            self.extract_capacities()
-            self.extract_resistances()
-            self.extract_temperatures()
-        else:
-            self.metadata = self.filter_rows(self.metadata, "battery_id", self.battery_cells)
-            self.extract_capacities()
-            self.extract_resistances()
-            self.extract_temperatures()
-        self.extract_cell_dataframes()
+
+        self.raw_train_df = self.filter_rows(self.metadata, "battery_id", self.train_cells)
+        self.raw_test_df = self.filter_rows(self.metadata, "battery_id", self.test_cells)
+
         if self.normalize:
             self.normalize_capacities()
         if self.smooth_data:

@@ -34,8 +34,8 @@ class NASADownoader():
             Delete the zip file(s) after extraction.
         """
         if os.path.exists(self.download_file_path):
-            print(f"Extracting {self.download_file_path}")
             if not os.path.exists(self.unzip_folder):
+                print(f"Extracting {self.download_file_path}")
                 with zipfile.ZipFile(self.download_file_path, 'r') as zfile:
                     zfile.extractall(path=self.output_path)
             
