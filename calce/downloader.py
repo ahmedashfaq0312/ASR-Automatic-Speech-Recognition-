@@ -15,7 +15,7 @@ class CALCEDownloader():
     def download(self):
         """Download dataset.
         """
-        print(f"Downloading CALCE dataset from {self.download_base_url}")
+        # print(f"Downloading CALCE dataset from {self.download_base_url}")
         for battery in self.battery_list:
             output_file = f"{battery}.zip"
             output_name = f"{self.raw_output_path}/{output_file}"

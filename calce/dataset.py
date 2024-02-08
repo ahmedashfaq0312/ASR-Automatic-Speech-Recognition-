@@ -9,6 +9,8 @@ try:
 except ModuleNotFoundError:
     from rul_estimation_datasets.calce.converter import CALCEConverter
     from rul_estimation_datasets.calce.downloader import CALCEDownloader
+from rul_estimation_datasets.dataset_utils import filter_rows, get_eol_information
+
 
 class CALCEDataset():
     """Class for preprocessing and loading CALCE battery dataset.
@@ -24,8 +26,9 @@ class CALCEDataset():
 
         self.dataset_config = dataset_config
         self.calce_root = self.dataset_config.dataset_root_dir
-        self.batteries = self.dataset_config.battery_list
-        self.battery_cells = self.batteries
+        self.train_cells = self.dataset_config.train_cells
+        self.test_cells = self.dataset_config.test_cells
+        self.dataset_cells = self.train_cells + self.test_cells
         self.file_type = self.dataset_config.file_type
         self.normalize = self.dataset_config.normalize_data
         self.clean_data = self.dataset_config.clean_data
@@ -33,7 +36,7 @@ class CALCEDataset():
         self.smooth_data = self.dataset_config.smooth_data
         self.smoothing_kernel_width = self.dataset_config.smoothing_kernel_width
 
-        self.downloader = CALCEDownloader(battery_list=self.batteries, output_path=self.calce_root)
+        self.downloader = CALCEDownloader(battery_list=self.dataset_cells, output_path=self.calce_root)
         self.converter = CALCEConverter()
         self.load()
         self.get_dataset_length()
@@ -91,19 +94,16 @@ class CALCEDataset():
             self.capacities[cell_id] = cap_smooth
         return cap_smooth
 
-    def get_positional_information(self):
+    def get_positional_information(self, data_df):
         """Extracts positional information from data.
         """
-        self.positions = {}
-        for data_index, data in self.capacities.items():
-            data_length = len(data)
-            self.positions[data_index] = list(range(1, data_length+1))
+        return data_df["cycle"].to_list()
 
     
-    def get_temporal_information(self):
+    def get_temporal_information(self, data_df):
         """Extracts temporal information from data.
         """
-        pass
+        return data_df["timestamps"].to_list()
 
     def get_eol_information(self):
         self.eols = {}
@@ -127,15 +127,11 @@ class CALCEDataset():
         for caps in self.capacities.values():
             self.dataset_length += len(caps)
 
-
-    def load(self):
-        """Loads CALCE dataset.
-        """
-        self.downloader.download_and_extract()
+    def load_cell_data(self):
         overview_path = self.calce_root + "/overview.csv"
         if not os.path.exists(overview_path):
             overview_df = pd.DataFrame([])
-            for name in self.batteries:
+            for name in self.train_cells:
                 print('Load CALCE Dataset ' + name + ' ...')
                 if name in ["CS2_8", "CS2_21"]:
                     path = glob.glob(self.calce_root + "/" + name + '/*.txt')
@@ -184,16 +180,50 @@ class CALCEDataset():
             overview_df.to_csv(overview_path)
         else:
             overview_df = pd.read_csv(overview_path, index_col=0)
-            self.raw_capacities = {}
-            for name in self.batteries:
-                cell_df = overview_df[overview_df["cell_id"]==name]
-                self.capacities[name] = cell_df["capacity"].tolist()
         self.data_df = overview_df
-        self.raw_capacities = self.capacities.copy()
-        if self.smooth_data:
-            self.smooth_capacities()
+
+    def normalize_capacities(self):
+        """Normalizes capacities.
+        """
+        train_capacities = self.raw_train_df["capacity"].astype(float)
+        normalized__train_capacities = [i/self.rated_capacity for i in train_capacities]
+        self.train_df["Cell_ID"] = self.raw_train_df["cell_id"].to_list()
+        self.train_df["Capacity"] = normalized__train_capacities
+        test_capacities = self.raw_test_df["capacity"].astype(float)
+        normalized_test_capacities = [i/self.rated_capacity for i in test_capacities]
+        self.test_df["Cell_ID"] = self.raw_test_df["cell_id"].to_list()
+        self.test_df["Capacity"] = normalized_test_capacities
+
+    def get_eol_information(self):
+        get_eol_information(self.train_df, self.normalize, self.rated_capacity)
+        get_eol_information(self.test_df, self.normalize, self.rated_capacity)
+
+    def preprocess(self):
+        self.train_df = pd.DataFrame([])
+        self.test_df = pd.DataFrame([])
+        self.raw_train_df = filter_rows(self.data_df, "cell_id", self.train_cells)
+        self.raw_test_df = filter_rows(self.data_df, "cell_id", self.test_cells)
+        self.train_df["Cycle"] = self.get_positional_information(self.raw_train_df)
+        self.test_df["Cycle"] = self.get_positional_information(self.raw_test_df)
+        self.train_df["Time"] = self.get_temporal_information(self.raw_train_df)
+        self.test_df["Time"] = self.get_temporal_information(self.raw_test_df)
+
+        if self.normalize:
+            self.normalize_capacities()
+        # if self.smooth_data:
+        #     self.smooth_capacities()
         self.get_eol_information()
 
+    def load(self):
+        """Loads CALCE dataset.
+        """
+        self.downloader.download_and_extract()
+        self.load_cell_data()
+
+        self.preprocess()
+
+
+        
     def load_txt(self, df, name, path_sorted):
         """Wrapper for loading txt data.
         """
