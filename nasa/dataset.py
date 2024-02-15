@@ -188,28 +188,6 @@ class NASADataset():
             normalized_measurement_times = self.normalize_measurement_times(tmp_times)
             measurement_times.extend(normalized_measurement_times)
         return measurement_times
-    
-    def get_eol_information_df(self, data_df):
-        eols = []
-        cycles_until_eols = []
-        unique_cells = data_df["Cell_ID"].unique()
-        eol_criterion = 0.7 if self.normalize else self.rated_capacity*0.7
-        for cell in unique_cells:
-            caps = data_df[data_df["Cell_ID"] == cell]["Capacity"].astype(float)
-            try:
-                # calculate cycle where EOL is reached (if EOL not reached, cycle is set to -1)
-                eol_idx = next(x for x, val in enumerate(caps) if val <= eol_criterion)
-            except StopIteration:
-                eol_idx = -1
-            eols.extend([eol_idx for _ in range(len(caps))])
-            if eol_idx == -1:
-                cycles_until_eol = [-1 for i in range(len(caps))]
-            else:
-                cycles_until_eol = [eol_idx - i for i in range(len(caps))]
-            cycles_until_eols.extend(cycles_until_eol)
-        data_df["EOL_cycle"] = eols
-        data_df["Cycles_to_EOL"] = cycles_until_eols
-
 
     def get_eol_information(self):
         get_eol_information(self.train_df, self.normalize, self.rated_capacity)

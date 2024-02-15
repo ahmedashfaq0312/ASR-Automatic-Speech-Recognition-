@@ -16,14 +16,6 @@ class CALCEDataset():
     """Class for preprocessing and loading CALCE battery dataset.
     """
     def __init__(self, dataset_config):
-        self.data_dict = {}
-        self.capacities = {}
-        self.sohs = {}
-        self.resistances = {}
-        self.measurement_times = {}
-        self.ccct = {}
-        self.cvct = {}
-
         self.dataset_config = dataset_config
         self.calce_root = self.dataset_config.dataset_root_dir
         self.train_cells = self.dataset_config.train_cells
@@ -106,26 +98,12 @@ class CALCEDataset():
         return data_df["timestamps"].to_list()
 
     def get_eol_information(self):
-        self.eols = {}
-        self.cycles_until_eol = {}
-        eol_criterion = 0.7 if self.normalize else self.rated_capacity*0.7
-        for cell, caps in self.capacities.items():
-            try:
-                # calculate cycle where EOL is reached (if EOL not reached, cycle is set to -1)
-                eol_idx = next(x for x, val in enumerate(caps) if val <= eol_criterion)
-            except StopIteration:
-                eol_idx = -1
-            self.eols[cell] = eol_idx
-            if eol_idx == -1:
-                cycles_until_eol = [-1 for i in range(len(caps))]
-            else:
-                cycles_until_eol = [eol_idx - i for i in range(len(caps))]
-            self.cycles_until_eol[cell] = cycles_until_eol
+        get_eol_information(self.train_df, self.normalize, self.rated_capacity)
+        get_eol_information(self.test_df, self.normalize, self.rated_capacity)
 
     def get_dataset_length(self):
-        self.dataset_length = 0
-        for caps in self.capacities.values():
-            self.dataset_length += len(caps)
+        self.train_dataset_length = len(self.train_df["Capacity"])
+        self.trest_dataset_length = len(self.test_df["Capacity"])
 
     def load_cell_data(self):
         overview_path = self.calce_root + "/overview.csv"
@@ -194,10 +172,6 @@ class CALCEDataset():
         self.test_df["Cell_ID"] = self.raw_test_df["cell_id"].to_list()
         self.test_df["Capacity"] = normalized_test_capacities
 
-    def get_eol_information(self):
-        get_eol_information(self.train_df, self.normalize, self.rated_capacity)
-        get_eol_information(self.test_df, self.normalize, self.rated_capacity)
-
     def preprocess(self):
         self.train_df = pd.DataFrame([])
         self.test_df = pd.DataFrame([])
@@ -212,7 +186,8 @@ class CALCEDataset():
             self.normalize_capacities()
         # if self.smooth_data:
         #     self.smooth_capacities()
-        self.get_eol_information()
+        get_eol_information(self.train_df, self.normalize, self.rated_capacity)
+        get_eol_information(self.test_df, self.normalize, self.rated_capacity)
 
     def load(self):
         """Loads CALCE dataset.

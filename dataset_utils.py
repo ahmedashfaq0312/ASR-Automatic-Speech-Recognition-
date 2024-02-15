@@ -1,4 +1,6 @@
 import pandas as pd
+from collections import Counter
+from itertools import tee, count
 
 def get_positional_information(data_df, cell_column_name):
     """Extracts positional information from data.
@@ -40,3 +42,21 @@ def filter_rows(data_df, column_name, attribute):
     elif type(attribute) == list:
         return_df = data_df[data_df[column_name].isin(attribute)]
     return return_df
+
+def uniquify(seq, suffs = count(1)):
+    """Make all the items unique by adding a suffix (1, 2, etc).
+
+    `seq` is mutable sequence of strings.
+    `suffs` is an optional alternative suffix iterable.
+    """
+    not_unique = [k for k,v in Counter(seq).items() if v>1] # so we have: ['name', 'zip']
+    # suffix generator dict - e.g., {'name': <my_gen>, 'zip': <my_gen>}
+    suff_gens = dict(zip(not_unique, tee(suffs, len(not_unique))))  
+    for idx,s in enumerate(seq):
+        try:
+            suffix = f"_{str(next(suff_gens[s]))}"
+        except KeyError:
+            # s was unique
+            continue
+        else:
+            seq[idx] += suffix

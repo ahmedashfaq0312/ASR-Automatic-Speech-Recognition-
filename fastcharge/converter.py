@@ -3,6 +3,7 @@ import mat73
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+from rul_estimation_datasets.dataset_utils import uniquify
 
 class FastChargeConverter():
     def __init__(self, fastcharge_root):
@@ -20,16 +21,20 @@ class FastChargeConverter():
         for cycle in data_df["cycles"]:
             tmp_times = [0.0]
             cycle_times = cycle["t"]
-            for time in cycle_times:
-                if time is not None:
-                    tmp_time = time[-1]*60 # get time in minutes
-                    tmp_times.append(tmp_time+tmp_times[-1])
-            times.append(tmp_times)
+            # for time in cycle_times:
+            #     if time is not None:
+            #         tmp_time = time[-1]*60 # get time in minutes
+            #         tmp_times.append(tmp_time+tmp_times[-1])
+            #     else:
+            #         tmp_times.append(tmp_times[-1])
+                
+            # times.append(tmp_times)
         return times
     
     def concat_and_save_data(self, data, out_file):
         summary = data["summary"]
         policy = data["policy"]
+        uniquify(policy)
         cycle_lifes = data["cycle_life"]
         fastcharge_summary_df = pd.DataFrame([])
         cycle_times = self.get_cycle_times(data)
@@ -41,7 +46,7 @@ class FastChargeConverter():
                 tmp_df = pd.DataFrame(summary[i])
                 tmp_df["Experiment"] = policy[i]
                 tmp_df["Cycle_Life"] = cycle_lifes[i]
-                tmp_df["Time"] = cycle_times[i]
+                # tmp_df["Time"] = cycle_times[i]
                 fastcharge_summary_df = pd.concat([fastcharge_summary_df, tmp_df], ignore_index=True)
         fastcharge_summary_df.to_csv(out_file)
 
