@@ -3,7 +3,10 @@ import mat73
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
-from rul_estimation_datasets.dataset_utils import uniquify
+try:
+    from rul_estimation_datasets.dataset_utils import uniquify
+except:
+    from rul_estimation.rul_estimation_datasets.dataset_utils import uniquify
 
 class FastChargeConverter():
     def __init__(self, fastcharge_root):

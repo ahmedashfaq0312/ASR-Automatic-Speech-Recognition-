@@ -6,7 +6,10 @@ from datetime import datetime
 import collections
 from .downloader import NASADownoader
 from .converter import NASAConverter
-from rul_estimation_datasets.dataset_utils import get_positional_information, get_eol_information
+try:
+    from rul_estimation_datasets.dataset_utils import get_positional_information, get_eol_information
+except:
+    from rul_estimation.rul_estimation_datasets.dataset_utils import get_positional_information, get_eol_information
 
 class NASADataset():
     """Class for preprocessing and loading NASA battery dataset.

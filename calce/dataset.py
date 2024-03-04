@@ -4,18 +4,27 @@ import pandas as pd
 import glob
 import scipy
 try:
-    from calce.converter import CALCEConverter
-    from calce.downloader import CALCEDownloader
-except ModuleNotFoundError:
     from rul_estimation_datasets.calce.converter import CALCEConverter
     from rul_estimation_datasets.calce.downloader import CALCEDownloader
-from rul_estimation_datasets.dataset_utils import filter_rows, get_eol_information
+    from rul_estimation_datasets.dataset_utils import filter_rows, get_eol_information
+except ModuleNotFoundError:
+    from rul_estimation.rul_estimation_datasets.calce.converter import CALCEConverter
+    from rul_estimation.rul_estimation_datasets.calce.downloader import CALCEDownloader
+    from rul_estimation.rul_estimation_datasets.dataset_utils import filter_rows, get_eol_information
 
 
 class CALCEDataset():
     """Class for preprocessing and loading CALCE battery dataset.
     """
     def __init__(self, dataset_config):
+        self.data_dict = {}
+        self.capacities = {}
+        self.sohs = {}
+        self.resistances = {}
+        self.measurement_times = {}
+        self.ccct = {}
+        self.cvct = {}
+        
         self.dataset_config = dataset_config
         self.calce_root = self.dataset_config.dataset_root_dir
         self.train_cells = self.dataset_config.train_cells

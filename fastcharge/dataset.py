@@ -2,7 +2,10 @@ import os
 import pandas as pd
 import numpy as np
 from .converter import FastChargeConverter
-from rul_estimation_datasets.dataset_utils import filter_rows, get_eol_information
+try:
+    from rul_estimation_datasets.dataset_utils import filter_rows, get_eol_information
+except:
+    from rul_estimation.rul_estimation_datasets.dataset_utils import filter_rows, get_eol_information
 
 class FastChargeDataset():
     def __init__(self, dataset_config):
