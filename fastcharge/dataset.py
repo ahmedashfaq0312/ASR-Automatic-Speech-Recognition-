@@ -38,9 +38,8 @@ class FastChargeDataset():
     def get_dataset_length(self):
         """Calculates the length of the loaded dataset.
         """
-        self.dataset_length = 0
-        for caps in self.capacities.values():
-            self.dataset_length += len(caps)
+        self.train_dataset_length = len(self.train_df["Capacity"])
+        self.test_dataset_length = len(self.test_df["Capacity"])
 
     def normalize_capacities(self):
         """Normalizes capacities.
