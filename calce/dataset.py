@@ -181,6 +181,20 @@ class CALCEDataset():
         self.test_df["Cell_ID"] = self.raw_test_df["cell_id"].to_list()
         self.test_df["Capacity"] = normalized_test_capacities
 
+    def normalize_times(self):
+        """Normalizes times.
+        """
+        train_times = self.train_df["Time"].astype(float)
+        normalized_train_times = [i/max(train_times) for i in train_times]
+        remaining_train_times = [1-i for i in normalized_train_times]
+        self.train_df["Time"] = normalized_train_times
+        self.train_df["Remaining Time"] = remaining_train_times
+        test_times = self.test_df["Time"].astype(float)
+        normalized_test_times = [i/max(train_times) for i in test_times]
+        remaining_test_times = [1-i for i in normalized_test_times]
+        self.test_df["Time"] = normalized_test_times
+        self.test_df["Remaining Time"] = remaining_test_times
+
     def preprocess(self):
         self.train_df = pd.DataFrame([])
         self.test_df = pd.DataFrame([])
@@ -193,6 +207,7 @@ class CALCEDataset():
 
         if self.normalize:
             self.normalize_capacities()
+            self.normalize_times()
         # if self.smooth_data:
         #     self.smooth_capacities()
         get_eol_information(self.train_df, self.normalize, self.rated_capacity)
@@ -206,8 +221,6 @@ class CALCEDataset():
 
         self.preprocess()
 
-
-        
     def load_txt(self, df, name, path_sorted):
         """Wrapper for loading txt data.
         """
