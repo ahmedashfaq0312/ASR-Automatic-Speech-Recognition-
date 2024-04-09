@@ -179,6 +179,20 @@ class NASADataset():
         normalized_test_capacities = [i/self.rated_capacity for i in test_capacities]
         self.test_df["Cell_ID"] = self.raw_test_df["battery_id"].to_list()
         self.test_df["Capacity"] = normalized_test_capacities
+        
+    def normalize_times(self):
+        """Normalizes times.
+        """
+        train_times = self.train_df["Time"].astype(float)
+        normalized_train_times = [i/max(train_times) for i in train_times]
+        remaining_train_times = [1-i for i in normalized_train_times]
+        self.train_df["Time"] = normalized_train_times
+        self.train_df["Remaining Time"] = remaining_train_times
+        test_times = self.test_df["Time"].astype(float)
+        normalized_test_times = [i/max(train_times) for i in test_times]
+        remaining_test_times = [1-i for i in normalized_test_times]
+        self.test_df["Time"] = normalized_test_times
+        self.test_df["Remaining Time"] = remaining_test_times
 
     def get_temporal_information(self, data_df):
         """Extracts temporal information from data.
@@ -192,9 +206,14 @@ class NASADataset():
             measurement_times.extend(normalized_measurement_times)
         return measurement_times
 
+
     def get_eol_information(self):
         get_eol_information(self.train_df, self.normalize, self.rated_capacity)
         get_eol_information(self.test_df, self.normalize, self.rated_capacity)
+        
+        # if train_method is oneshot
+        self.train_df = self.train_df[self.train_df["Cycles_to_EOL"] >= 0]
+        self.test_df = self.test_df[self.test_df["Cycles_to_EOL"] >= 0]
 
     def get_dataset_length(self):
         self.train_dataset_length = len(self.train_df["Capacity"])
@@ -215,10 +234,11 @@ class NASADataset():
 
         if self.normalize:
             self.normalize_capacities()
+            self.normalize_times()
         # if self.smooth_data:
         #     self.smooth_capacities()
         self.get_eol_information()
-        
+
 
     def load(self):
         """Loads NASA dataset.
