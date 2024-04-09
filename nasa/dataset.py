@@ -210,6 +210,10 @@ class NASADataset():
     def get_eol_information(self):
         get_eol_information(self.train_df, self.normalize, self.rated_capacity)
         get_eol_information(self.test_df, self.normalize, self.rated_capacity)
+        
+        # if train_method is oneshot
+        self.train_df = self.train_df[self.train_df["Cycles_to_EOL"] >= 0]
+        self.test_df = self.test_df[self.test_df["Cycles_to_EOL"] >= 0]
 
     def get_dataset_length(self):
         self.train_dataset_length = len(self.train_df["Capacity"])
@@ -233,7 +237,8 @@ class NASADataset():
             self.normalize_times()
         # if self.smooth_data:
         #     self.smooth_capacities()
-        self.get_eol_information()        
+        self.get_eol_information()
+
 
     def load(self):
         """Loads NASA dataset.
