@@ -4,19 +4,23 @@ import pandas as pd
 import glob
 import scipy
 try:
+    from rul_estimation_datasets import RUL_DATASETS_ROOT_PATH
     from rul_estimation_datasets.calce.converter import CALCEConverter
     from rul_estimation_datasets.calce.downloader import CALCEDownloader
     from rul_estimation_datasets.dataset_utils import filter_rows, get_eol_information
+    from util import get_config
 except ModuleNotFoundError:
+    from rul_estimation.rul_estimation_datasets import RUL_DATASETS_ROOT_PATH
     from rul_estimation.rul_estimation_datasets.calce.converter import CALCEConverter
     from rul_estimation.rul_estimation_datasets.calce.downloader import CALCEDownloader
     from rul_estimation.rul_estimation_datasets.dataset_utils import filter_rows, get_eol_information
+    from rul_estimation.util import get_config
 
 
 class CALCEDataset():
     """Class for preprocessing and loading CALCE battery dataset.
     """
-    def __init__(self, dataset_config):
+    def __init__(self, calce_config=None, file_type=".csv"):
         self.data_dict = {}
         self.capacities = {}
         self.sohs = {}
@@ -25,17 +29,22 @@ class CALCEDataset():
         self.ccct = {}
         self.cvct = {}
         
-        self.dataset_config = dataset_config
-        self.calce_root = self.dataset_config.dataset_root_dir
-        self.train_cells = self.dataset_config.train_cells
-        self.test_cells = self.dataset_config.test_cells
+        if calce_config is None:
+            self.calce_config = get_config(f"{RUL_DATASETS_ROOT_PATH}/configs/calce_config.json")
+            self.calce_root = self.calce_config.dataset_root_dir
+        else:
+            self.calce_config = calce_config.dataset_config
+            self.calce_root = self.calce_config.dataset_root_dir
+
+        self.file_type = file_type
+        self.train_cells = self.calce_config.train_cells
+        self.test_cells = self.calce_config.test_cells
         self.dataset_cells = self.train_cells + self.test_cells
-        self.file_type = self.dataset_config.file_type
-        self.normalize = self.dataset_config.normalize_data
-        self.clean_data = self.dataset_config.clean_data
-        self.rated_capacity = self.dataset_config.rated_capacity
-        self.smooth_data = self.dataset_config.smooth_data
-        self.smoothing_kernel_width = self.dataset_config.smoothing_kernel_width
+        self.normalize = self.calce_config.normalize_data
+        self.clean_data = self.calce_config.clean_data
+        self.rated_capacity = 1.1
+        self.smooth_data = self.calce_config.smooth_data
+        self.smoothing_kernel_width = self.calce_config.smoothing_kernel_width
 
         self.downloader = CALCEDownloader(battery_list=self.dataset_cells, output_path=self.calce_root)
         self.converter = CALCEConverter()

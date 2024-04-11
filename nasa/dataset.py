@@ -4,32 +4,43 @@ import ast
 import re
 from datetime import datetime
 import collections
-from .downloader import NASADownoader
-from .converter import NASAConverter
 try:
+    from rul_estimation_datasets import RUL_DATASETS_ROOT_PATH
+    from rul_estimation_datasets.nasa.converter import NASAConverter
+    from rul_estimation_datasets.nasa.downloader import NASADownloader
     from rul_estimation_datasets.dataset_utils import get_positional_information, get_eol_information
+    from util import get_config
 except:
+    from rul_estimation.rul_estimation_datasets import RUL_DATASETS_ROOT_PATH
+    from rul_estimation.rul_estimation_datasets.nasa.converter import NASAConverter
+    from rul_estimation.rul_estimation_datasets.nasa.downloader import NASADownloader
     from rul_estimation.rul_estimation_datasets.dataset_utils import get_positional_information, get_eol_information
+    from rul_estimation.util import get_config
 
 class NASADataset():
     """Class for preprocessing and loading NASA battery dataset.
     """
-    def __init__(self, dataset_config) -> None: # batteries: ["all", "B0005", "["B0005", "B0006", "B0007", ...]"]; normalize: [None, "max", "first"]
-        self.dataset_config = dataset_config
-        self.nasa_root = self.dataset_config.dataset_root_dir
+    def __init__(self, nasa_config=None) -> None: # batteries: ["all", "B0005", "["B0005", "B0006", "B0007", ...]"]; normalize: [None, "max", "first"]
+        if nasa_config is None:
+            self.nasa_config = get_config(f"{RUL_DATASETS_ROOT_PATH}/configs/nasa_config.json")
+            self.nasa_root = self.nasa_config.dataset_root_dir
+        else:
+            self.nasa_config = nasa_config.dataset_config
+            self.nasa_root = self.nasa_config.dataset_root_dir
+        
         self.dataset_dir = f"{self.nasa_root}/data"
-        self.train_batteries = self.dataset_config.train_cells
+        self.train_batteries = self.nasa_config.train_cells
         if self.train_batteries == "all":
             self.train_cells = ['B0005', 'B0006', 'B0007', 'B0018', 'B0025', 'B0026', 'B0027', 'B0028', 'B0029', 'B0030', 'B0031', 'B0032', 'B0033', 'B0034', 'B0036', 'B0038', 'B0039', 'B0040', 'B0041', 'B0042', 'B0043', 'B0044', 'B0045', 'B0046', 'B0047', 'B0048', 'B0049', 'B0050', 'B0051', 'B0052', 'B0053', 'B0054', 'B0055', 'B0056']
         else:
             self.train_cells = self.train_batteries
-        self.test_cells = self.dataset_config.test_cells
-        self.normalize = self.dataset_config.normalize_data
-        self.clean_data = self.dataset_config.clean_data
-        self.rated_capacity = self.dataset_config.rated_capacity
-        self.smooth_data = self.dataset_config.smooth_data
-        self.smoothing_kernel_width = self.dataset_config.smoothing_kernel_width
-        self.downloader = NASADownoader(output_path=self.nasa_root+"_raw")
+        self.test_cells = self.nasa_config.test_cells
+        self.normalize = self.nasa_config.normalize_data
+        self.clean_data = self.nasa_config.clean_data
+        self.rated_capacity = 2.0
+        self.smooth_data = self.nasa_config.smooth_data
+        self.smoothing_kernel_width = self.nasa_config.smoothing_kernel_width
+        self.downloader = NASADownloader(output_path=self.nasa_root+"_raw")
         self.converter = NASAConverter(nasa_dir=self.nasa_root+"_raw", output_dir=self.nasa_root)
         self.load()
         self.get_dataset_length()

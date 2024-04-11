@@ -1,11 +1,9 @@
 {
-    "training_type": "cell",
-    "dataset": "FastCharge",
-    "dataset_root_dir": "/home/tobias/data/PowerizeD/Daten/FastCharge", 
+    "dataset": "fastcharge",
+    "dataset_root_dir": "/data/FastCharge", 
     "battery_list": "all",
     "normalize_data": true,
     "clean_data": false,
     "smooth_data": false,
-    "smoothing_kernel_width": 9,
-    "rated_capacity": 1.1
+    "smoothing_kernel_width": 9
 }

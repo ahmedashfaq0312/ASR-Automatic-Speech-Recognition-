@@ -4,7 +4,7 @@ import requests
 import shutil
 import zipfile
 
-class NASADownoader():
+class NASADownloader():
     """Class for downloading NASA battery dataset.
     """
     def __init__(self, output_path="NASA_raw") -> None:
