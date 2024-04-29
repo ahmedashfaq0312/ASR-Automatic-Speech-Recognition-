@@ -229,7 +229,9 @@ class NASADataset():
     def get_additional_features(self):
         filtered_train_features = filter_rows(self.additional_features, "battery_id", self.train_cells)
         filtered_train_features = filtered_train_features.drop(["cycle", "battery_id"], axis=1)
-        return filtered_train_features
+        filtered_test_features = filter_rows(self.additional_features, "battery_id", self.test_cells)
+        filtered_test_features = filtered_test_features.drop(["cycle", "battery_id"], axis=1)
+        return filtered_train_features, filtered_test_features
         
     def preprocessing(self):
         self.train_df = pd.DataFrame([])
@@ -243,8 +245,9 @@ class NASADataset():
         self.train_df["Time"] = self.get_temporal_information(self.raw_train_df)
         self.test_df["Time"] = self.get_temporal_information(self.raw_test_df)
         
-        self.additional_features_df = self.get_additional_features()
-        self.train_df = pd.concat([self.train_df, self.additional_features_df], axis=1)
+        self.additional_train_features, self.additional_test_features = self.get_additional_features()
+        self.train_df = pd.concat([self.train_df, self.additional_train_features], axis=1)
+        self.test_df = pd.concat([self.test_df, self.additional_test_features], axis=1)
 
         if self.normalize:
             self.normalize_capacities()
