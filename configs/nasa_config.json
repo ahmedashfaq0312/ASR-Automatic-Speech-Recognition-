@@ -1,11 +1,13 @@
 {
-    "dataset": "nasa",
-    "dataset_root_dir": "/data/NASA", 
-    "train_cells": ["B0005", "B0006", "B0007"],
-    "test_cells": ["B0018"],
-    "features": ["Capacity"],
-    "normalize_data": true,
-    "clean_data": true,
-    "smooth_data": true,
-    "smoothing_kernel_width": 1
+    "dataset_config": {
+        "dataset": "nasa",
+        "dataset_root_dir": "/data/NASA", 
+        "train_cells": ["B0005", "B0006", "B0007"],
+        "test_cells": ["B0018"],
+        "features": ["Capacity"],
+        "normalize_data": true,
+        "clean_data": true,
+        "smooth_data": true,
+        "smoothing_kernel_width": 1
+    }
 }

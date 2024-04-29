@@ -1,11 +1,13 @@
 {
-    "dataset": "calce",
-    "dataset_root_dir": "/data/CALCE",
-    "train_cells": ["CS2_33", "CS2_34", "CS2_35", "CS2_36","CS2_37"],
-    "test_cells": ["CS2_38"],
-    "features": ["Capacity"],
-    "normalize_data": true,
-    "clean_data": true,
-    "smooth_data": true,
-    "smoothing_kernel_width": 1
+    "dataset_config": {
+        "dataset": "calce",
+        "dataset_root_dir": "/data/CALCE",
+        "train_cells": ["CS2_33", "CS2_34", "CS2_35", "CS2_36","CS2_37"],
+        "test_cells": ["CS2_38"],
+        "features": ["Capacity"],
+        "normalize_data": true,
+        "clean_data": true,
+        "smooth_data": true,
+        "smoothing_kernel_width": 1
+    }
 }

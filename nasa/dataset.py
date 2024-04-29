@@ -4,18 +4,27 @@ import ast
 import re
 from datetime import datetime
 import collections
+from sqlalchemy import create_engine
+from sqlalchemy_utils import database_exists, create_database
 try:
-    from rul_estimation_datasets import RUL_DATASETS_ROOT_PATH
-    from rul_estimation_datasets.nasa.converter import NASAConverter
-    from rul_estimation_datasets.nasa.downloader import NASADownloader
-    from rul_estimation_datasets.dataset_utils import get_positional_information, get_eol_information
+    from __init__ import RUL_DATASETS_ROOT_PATH
+    from nasa.converter import NASAConverter
+    from nasa.downloader import NASADownloader
+    from dataset_utils import filter_rows, get_positional_information, get_eol_information
     from util import get_config
 except:
-    from rul_estimation.rul_estimation_datasets import RUL_DATASETS_ROOT_PATH
-    from rul_estimation.rul_estimation_datasets.nasa.converter import NASAConverter
-    from rul_estimation.rul_estimation_datasets.nasa.downloader import NASADownloader
-    from rul_estimation.rul_estimation_datasets.dataset_utils import get_positional_information, get_eol_information
-    from rul_estimation.util import get_config
+    try:
+        from rul_estimation_datasets import RUL_DATASETS_ROOT_PATH
+        from rul_estimation_datasets.nasa.converter import NASAConverter
+        from rul_estimation_datasets.nasa.downloader import NASADownloader
+        from rul_estimation_datasets.dataset_utils import filter_rows, get_positional_information, get_eol_information
+        from util import get_config
+    except:
+        from rul_estimation.rul_estimation_datasets import RUL_DATASETS_ROOT_PATH
+        from rul_estimation.rul_estimation_datasets.nasa.converter import NASAConverter
+        from rul_estimation.rul_estimation_datasets.nasa.downloader import NASADownloader
+        from rul_estimation.rul_estimation_datasets.dataset_utils import filter_rows, get_positional_information, get_eol_information
+        from rul_estimation.util import get_config
 
 class NASADataset():
     """Class for preprocessing and loading NASA battery dataset.
@@ -43,7 +52,6 @@ class NASADataset():
         self.downloader = NASADownloader(output_path=self.nasa_root+"_raw")
         self.converter = NASAConverter(nasa_dir=self.nasa_root+"_raw", output_dir=self.nasa_root)
         self.load()
-        self.get_dataset_length()
 
     def clean(self, data, thresh=0.1):
         """Clean peaks from data.
@@ -160,18 +168,6 @@ class NASADataset():
         
         self.ambient_temperatures_charge = collections.OrderedDict(sorted(ambient_temperatures_charge.items()))
         self.ambient_temperatures_discharge = collections.OrderedDict(sorted(ambient_temperatures_discharge.items()))
-        
-    
-    def filter_rows(self, data_df, column_name, attribute):
-        """Filters rows of specific colums with specific values.
-        """
-        return_df = pd.DataFrame([0])
-        # return_df = None
-        if type(attribute) == str:
-            return_df = data_df[data_df[column_name] == attribute]
-        elif type(attribute) == list:
-            return_df = data_df[data_df[column_name].isin(attribute)]
-        return return_df
 
     def normalize_measurement_times(self, measurement_times):
         """Normalizes data.
@@ -230,18 +226,25 @@ class NASADataset():
         self.train_dataset_length = len(self.train_df["Capacity"])
         self.trest_dataset_length = len(self.test_df["Capacity"])
 
+    def get_additional_features(self):
+        filtered_train_features = filter_rows(self.additional_features, "battery_id", self.train_cells)
+        filtered_train_features = filtered_train_features.drop(["cycle", "battery_id"], axis=1)
+        return filtered_train_features
+        
     def preprocessing(self):
         self.train_df = pd.DataFrame([])
         self.test_df = pd.DataFrame([])
-        self.metadata = pd.read_csv(f"{self.nasa_root}/metadata.csv")
-        self.raw_train_df = self.filter_rows(self.metadata, "battery_id", self.train_cells)
-        self.raw_test_df = self.filter_rows(self.metadata, "battery_id", self.test_cells)
+        self.raw_train_df = filter_rows(self.metadata, "battery_id", self.train_cells)
+        self.raw_test_df = filter_rows(self.metadata, "battery_id", self.test_cells)
         self.raw_train_df = self.raw_train_df[self.raw_train_df["type"] == "discharge"]
         self.raw_test_df = self.raw_test_df[self.raw_test_df["type"] == "discharge"]
         self.train_df["Cycle"] = get_positional_information(self.raw_train_df, cell_column_name="battery_id")
         self.test_df["Cycle"] = get_positional_information(self.raw_test_df, cell_column_name="battery_id")
         self.train_df["Time"] = self.get_temporal_information(self.raw_train_df)
         self.test_df["Time"] = self.get_temporal_information(self.raw_test_df)
+        
+        self.additional_features_df = self.get_additional_features()
+        self.train_df = pd.concat([self.train_df, self.additional_features_df], axis=1)
 
         if self.normalize:
             self.normalize_capacities()
@@ -256,4 +259,55 @@ class NASADataset():
         """
         self.downloader.download_and_extract()
         self.converter.convert()
+        self.metadata = pd.read_csv(f"{self.nasa_root}/metadata.csv")
+        self.additional_features = pd.read_csv(f"{self.nasa_root}/features.csv")
         self.preprocessing()
+        self.get_dataset_length()
+    
+    # def load(self):
+    #     """Loads NASA dataset.
+    #     """
+    #     username = "powerized_db_user"
+    #     password = "powerized_db_data"
+    #     host = "192.168.111.4"
+    #     port = 5432
+    #     engine = create_engine(f"postgresql+pg8000://{username}:{password}@{host}:{port}/NASA", echo=False) # PostgreSQL
+    #     self.metadata = pd.read_sql_table('metadata', con=engine, index_col=0)
+    #     self.preprocessing()
+    #     self.get_dataset_length()
+    #     i=0
+    
+    def load_cycle_data_to_db(self, engine):
+        for bat_id in self.metadata["battery_id"].unique():
+            bat_metadata = self.metadata[self.metadata["battery_id"] == bat_id]
+            bat_cycle_files = bat_metadata["filename"].to_list()
+            cycle_number = 1
+            battery_cycle_data = pd.DataFrame([])
+            print(bat_id)
+            for cycle_file in bat_cycle_files:
+                cycle_data = pd.read_csv(f"{self.dataset_dir}/{cycle_file}")
+                # create array with cycle number and insert to cycle data
+                cycle_number_array = [cycle_number for _ in range(len(cycle_data))]
+                cycle_data.insert(0, "cycle", cycle_number_array, allow_duplicates=True)
+                # replace dataframe or append to dataframe
+                if battery_cycle_data.empty:
+                    battery_cycle_data = cycle_data
+                else:
+                    battery_cycle_data = pd.concat([battery_cycle_data, cycle_data], ignore_index=True)
+
+                cycle_number += 1
+
+            battery_cycle_data.to_sql(name=bat_id, con=engine, chunksize=65535, if_exists="replace")
+
+    def load_data_to_db(self, username, password, host, port):
+        # create connection to database
+        engine = create_engine(f"postgresql+pg8000://{username}:{password}@{host}:{port}/NASA", echo=False) # PostgreSQL
+        # check if database exists
+        if not database_exists(engine.url):
+            create_database(engine.url)
+        # write metadata to db
+        self.metadata.to_sql(name='metadata', con=engine, if_exists="replace")
+        # load cycle data for each cell to db
+        self.load_cycle_data_to_db(engine)
+        # close connection
+        engine.dispose()

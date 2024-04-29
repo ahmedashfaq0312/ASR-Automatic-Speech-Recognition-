@@ -4,3 +4,6 @@ pandas
 scipy
 requests
 matplotlib
+sqlalchemy_utils
+python-dotenv
+pg8000
