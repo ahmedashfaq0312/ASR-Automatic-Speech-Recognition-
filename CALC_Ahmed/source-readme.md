@@ -1,3 +1,2 @@
 website: https://www.batteryarchive.org/
-Dataset Name: CALC /n
-........
+Dataset Name: CALC
